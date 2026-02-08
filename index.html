@@ -8,17 +8,19 @@
 body { font-family: sans-serif; padding: 10px; }
 table { border-collapse: collapse; margin-top: 10px; width: 100%; }
 td, th { border: 1px solid #888; padding: 5px 10px; text-align: center; }
-button.colorBtn { margin: 3px; padding: 10px; min-width: 100px; display: flex; flex-direction: column; align-items: center; }
+button.colorBtn { display: flex; flex-direction: column; align-items: center; font-size: 1em; padding: 20px 10px; min-width: 100%; }
 button .chordName { font-size: 0.7em; color: #333; }
-.colorSelect { margin-top: 3px; vertical-align:middle; width:100%; }
+.colorSelect { margin-top: 3px; vertical-align: middle; width: 100%; }
 #playSource { margin: 10px; padding: 15px; font-size: 1.2em; display: flex; flex-direction: column; align-items: center; }
 #sourceTriadLabel { font-size: 0.65em; margin-top: 4px; opacity: 0.8; }
 .blackRow td { color: white; }
 .blackBtn { color: white; }
 .blackBtn .chordName { color: white; }
-.triadControl { display: inline-flex; flex-direction: column; align-items: center; margin:3px; }
+.triadControl { display: flex; flex-direction: column; align-items: center; margin: 3px; flex: 1 1 calc(14% - 6px); }
 .triadControl .navButtons { margin-top: 3px; display:flex; justify-content:center; width:100%; }
 .triadControl .navButtons button { margin:0 2px; }
+#buttons { display: flex; flex-wrap: wrap; justify-content: space-between; width: 90%; margin: 0 auto; }
+.selectableText { user-select: text; cursor: text; }
 </style>
 </head>
 <body>
@@ -82,7 +84,7 @@ const colorOrder = ['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','
 
 // Piano samples mapping
 const sampleMap = {
-  "A":["A4","A5"], "A#":["A#4","A#5"], "B":["B4","B5"],
+  "A":["A4","A5"], "A#":["ASharp4","ASharp5"], "B":["B4","B5"],
   "C":["C5","C6"], "C#":["C#5"], "D":["D5"], "D#":["D#5"],
   "E":["E5"], "F":["F5"], "F#":["F#5"], "G":["G5"], "G#":["G#4","G#5"]
 };
@@ -177,7 +179,7 @@ async function changeSound(sound){
   if(sound==='piano' && !pianoSampler){
     pianoSampler = new Tone.Sampler({
       urls:{
-        "A4":"A4.wav","A#4":"ASharp4.wav","A5":"A5.wav","A#5":"ASharp5.wav",
+        "A4":"A4.wav","ASharp4":"ASharp4.wav","A5":"A5.wav","ASharp5":"ASharp5.wav",
         "B4":"B4.wav","B5":"B5.wav","C5":"C5.wav","C6":"C6.wav","C#5":"CSharp5.wav",
         "D5":"D5.wav","D#5":"DSharp5.wav","E5":"E5.wav","F5":"F5.wav",
         "F#5":"F#5.wav","G5":"G5.wav","G#4":"GSharp4.wav","G#5":"GSharp5.wav"
@@ -229,7 +231,7 @@ function scrollTriad(container, direction){
   container.dataset.index = idx;
   const triadObj = list[idx];
   const btn = container.querySelector('.colorBtn');
-  btn.innerHTML = triadObj.triad.join('-') + `<span class="chordName" ${color==='BLACK'?'style="color:white;"':''}>${triadObj.name}</span>`;
+  btn.innerHTML = `<span class="selectableText">${triadObj.triad.join('-')}</span><span class="chordName" ${color==='BLACK'?'style="color:white;"':''}>${triadObj.name}</span>`;
   btn.onclick = () => playChord(triadObj.triad);
 }
 
@@ -239,7 +241,6 @@ function updateTriadColor(select){
   const newColorHex = select.value;
   const newColor = Object.keys(colorMap).find(k=>colorMap[k]===newColorHex);
   if(!newColor) return;
-
   container.dataset.color = newColor;
   container.dataset.index = 0; 
   btn.style.backgroundColor = newColorHex;
@@ -308,9 +309,10 @@ function generateTable(){
     const firstTriad = list[0];
     btnHTML+=`
     <div class="triadControl" data-color="${c}" data-index="0">
-      <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" style="background:${colorMap[c]}" 
-        onclick="playChord([${firstTriad.triad.map(n=>`'${n}'`)}])">
-        ${firstTriad.triad.join('-')}<span class="chordName" ${c==='BLACK'?'style="color:white;"':''}>${firstTriad.name}</span>
+      <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" style="background:${colorMap[c]}"
+              onmousedown="if(!window.getSelection().toString()) playChord([${firstTriad.triad.map(n=>`'${n}'`)}])">
+        <span class="selectableText">${firstTriad.triad.join('-')}</span>
+        <span class="chordName" ${c==='BLACK'?'style="color:white;"':''}>${firstTriad.name}</span>
       </button>
       <div class="navButtons">
         <button onclick="scrollTriad(this.parentNode.parentNode,-1)">◀</button>
