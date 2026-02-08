@@ -75,7 +75,6 @@ let currentSound='piano';
 let pianoSampler;
 let activeSourceTriad=[];
 let currentSynth=null;
-let colorIndices = {};
 
 const colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
 const colorOrder = ['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
@@ -213,23 +212,31 @@ function triadsByColor(color){
   return currentTriads.filter(t=>t.color===color);
 }
 
-function updateTriadButton(color){
-  const list=triadsByColor(color);
-  if(!list.length) return;
-  const idx=colorIndices[color] ?? 0;
-  const triadObj=list[idx];
-  const btn=document.querySelector(`.colorBtn[data-color="${color}"]`);
-  if(!btn) return;
-  btn.innerHTML=triadObj.triad.join('-') + `<span class="chordName">${triadObj.name}</span>`;
-  btn.onclick=()=>playChord(triadObj.triad);
+function scrollTriad(container, direction){
+  const color = container.dataset.color;
+  const list = triadsByColor(color);
+  if(list.length===0) return;
+  let idx = parseInt(container.dataset.index || 0);
+  idx = (idx + direction + list.length) % list.length;
+  container.dataset.index = idx;
+  const triadObj = list[idx];
+  const btn = container.querySelector('.colorBtn');
+  btn.innerHTML = triadObj.triad.join('-') + `<span class="chordName">${triadObj.name}</span>`;
+  btn.onclick = () => playChord(triadObj.triad);
 }
 
-function changeTriad(color,direction){
-  const list=triadsByColor(color);
-  if(!list.length) return;
-  if(colorIndices[color]===undefined) colorIndices[color]=0;
-  colorIndices[color]=(colorIndices[color]+direction+list.length)%list.length;
-  updateTriadButton(color);
+function updateTriadColor(select){
+  const container = select.parentNode;
+  const btn = container.querySelector('.colorBtn');
+  const newColorHex = select.value;
+  const newColor = Object.keys(colorMap).find(k=>colorMap[k]===newColorHex);
+  if(!newColor) return;
+
+  container.dataset.color = newColor;
+  container.dataset.index = 0; // reset index
+  btn.style.backgroundColor = newColorHex;
+  btn.className = 'colorBtn' + (newColor==='BLACK'?' blackBtn':'');
+  scrollTriad(container, 0);
 }
 
 // --- Module 5: Table & Buttons generation ---
@@ -238,7 +245,6 @@ function generateTable(){
   const scale=scales[scaleKey];
   const sourceLabel=scaleKey;
   activeSourceTriad=baseTriads[scaleKey];
-
   document.getElementById('sourceTriadLabel').textContent = activeSourceTriad.join('-');
 
   let cTriads=[];
@@ -271,7 +277,6 @@ function generateTable(){
     let canonical=obj.triad.slice().sort((a,b)=>noteOrder.indexOf(a)-noteOrder.indexOf(b)).join(',');
     if(!seen.has(canonical)){seen.add(canonical); uniqueC.push(obj);}
   });
-
   currentTriads = uniqueC;
 
   // sort by color
@@ -295,41 +300,24 @@ function generateTable(){
   let colors=colorOrder;
   let btnHTML='';
   colors.forEach(c=>{
+    const list = triadsByColor(c);
+    if(list.length===0) return;
+    const firstTriad = list[0];
     btnHTML+=`
-    <div class="triadControl">
-      <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" data-color="${c}"></button>
+    <div class="triadControl" data-color="${c}" data-index="0">
+      <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" style="background:${colorMap[c]}" onclick="playChord([${firstTriad.triad.map(n=>`'${n}'`)}])">
+        ${firstTriad.triad.join('-')}<span class="chordName">${firstTriad.name}</span>
+      </button>
       <div class="navButtons">
-        <button onclick="changeTriad(this.parentNode.parentNode.querySelector('.colorBtn').dataset.color,-1)">◀</button>
-        <button onclick="changeTriad(this.parentNode.parentNode.querySelector('.colorBtn').dataset.color,1)">▶</button>
+        <button onclick="scrollTriad(this.parentNode.parentNode,-1)">◀</button>
+        <button onclick="scrollTriad(this.parentNode.parentNode,1)">▶</button>
       </div>
-      <select class="colorSelect" onchange="updateButtonColorFromSelect(this)">
+      <select class="colorSelect" onchange="updateTriadColor(this)">
         ${Object.entries(colorMap).map(([k,v])=>`<option value="${v}" ${v===colorMap[c]?'selected':''}>${k}</option>`).join('')}
       </select>
-    </div>
-    `;
+    </div>`;
   });
   document.getElementById('buttons').innerHTML=btnHTML;
-
-  // initialize indices and display first triad
-  colorIndices = {};
-  colors.forEach(c=>{
-    colorIndices[c]=0;
-    updateTriadButton(c);
-  });
-}
-
-// --- Module 6: Color change dropdown ---
-function updateButtonColorFromSelect(select){
-  const btn = select.parentNode.querySelector('.colorBtn'); 
-  const newColorHex = select.value;
-  const newColor = Object.keys(colorMap).find(k=>colorMap[k]===newColorHex);
-  if(!newColor) return;
-
-  btn.style.backgroundColor = newColorHex;
-  btn.dataset.color = newColor;
-
-  if(colorIndices[newColor]===undefined) colorIndices[newColor]=0;
-  updateTriadButton(newColor);
 }
 
 // --- Initialize ---
