@@ -83,9 +83,8 @@ const colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',B
 const colorOrder = ['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
 
 const sampleChoiceMap = {
-  "A":["A4","A5"], "A#":["A#4","A#5"], "B":["B4","B5"],
-  "C":["C5","C6"], "C#":["C#5"], "D":["D5"], "D#":["D#5"],
-  "E":["E5"], "F":["F5"], "F#":["F#5"], "G":["G5"], "G#":["G#4","G#5"]
+  "C":["C5","C6"], "C#":["C#5"], "D":["D5"], "D#":["D#5"], "E":["E5"], "F":["F5"], "F#":["F#5"],
+  "G":["G5"], "G#":["G#4","G#5"], "A":["A4","A5"], "A#":["A#4","A#5"], "B":["B4","B5"]
 };
 
 const pianoSamplerUrls = {
@@ -196,22 +195,32 @@ async function changeSound(sound){
 
 // --- Module 4: Playback ---
 function getTriadSamples(triad){
-  let notes = triad.map((note, i) => {
+  // Convert flats to sharps internally
+  const normalized = triad.map(n=>{
+    switch(n){
+      case 'Db': return 'C#';
+      case 'Eb': return 'D#';
+      case 'Gb': return 'F#';
+      case 'Ab': return 'G#';
+      case 'Bb': return 'A#';
+      default: return n;
+    }
+  });
+
+  // Map to actual samples
+  let notes = normalized.map((note, i) => {
     const options = sampleChoiceMap[note];
     if(!options) return null;
     if(i===0) return options[0];
     return options[1] || options[0];
   });
 
-  const a = noteIndex(triad[0]);
-  const b = noteIndex(triad[1]);
-  const c = noteIndex(triad[2]);
-
-  if(b - a === -1 || b - a === -2){
-    notes = [notes[1], notes[0], notes[2]]; // 213
-  } else if(b - c === 1 || b - c === 2){
-    notes = [notes[0], notes[2], notes[1]]; // 132
-  }
+  // 123 / 213 / 132 logic
+  const a = noteIndex(normalized[0]);
+  const b = noteIndex(normalized[1]);
+  const c = noteIndex(normalized[2]);
+  if(b - a === -1 || b - a === -2) notes = [notes[1], notes[0], notes[2]];
+  else if(b - c === 1 || b - c === 2) notes = [notes[0], notes[2], notes[1]];
 
   return notes.filter(Boolean);
 }
@@ -234,9 +243,7 @@ function playSourceTriad(){
 }
 
 // --- Module 5: Triad navigation & UI ---
-function triadsByColor(color){
-  return currentTriads.filter(t=>t.color===color);
-}
+function triadsByColor(color){ return currentTriads.filter(t=>t.color===color); }
 
 function scrollTriad(container, direction){
   const color = container.dataset.color;
@@ -311,7 +318,7 @@ function generateTable(){
 
   let uniqueC=[]; let seen=new Set();
   cTriads.forEach(obj=>{
-    let canonical=obj.triad.slice().sort((a,b)=>noteOrder.indexOf(a)-noteOrder.indexOf(b)).join(',');
+    let canonical=obj.triad.slice().sort((a,b)=>noteIndex(a)-noteIndex(b)).join(',');
     if(!seen.has(canonical)){seen.add(canonical); uniqueC.push(obj);}
   });
   currentTriads = uniqueC;
@@ -355,6 +362,7 @@ function generateTable(){
   document.getElementById('buttons').innerHTML=btnHTML;
 }
 
+// --- Initialize ---
 generateTable();
 </script>
 </body>
