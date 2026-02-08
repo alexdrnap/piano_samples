@@ -132,62 +132,61 @@ function generateTriads(base){
   let results=new Set();
   for(let i=0;i<3;i++) for(let s of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s); results.add(tri.join(',')); }
   for(let i=0;i<2;i++) for(let j=i+1;j<3;j++) for(let s1 of semis) for(let s2 of semis){
-    let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(',')); }
+    let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(','));
+  }
   for(let s1 of semis) for(let s2 of semis) for(let s3 of semis){
     results.add([transpose(base[0],s1),transpose(base[1],s2),transpose(base[2],s3)].join(','));
   }
   return Array.from(results).map(r=>r.split(','));
 }
 
-// ------------------- Piano samples -------------------
+// ------------------- Real piano samples mapping from GitHub -------------------
 const githubBase = "https://raw.githubusercontent.com/alexdrnap/piano_samples/main/";
 const pianoSampleMap = {
-  "C4":"C4.wav","C#4":"C#4.wav","D4":"D4.wav","D#4":"D#4.wav","E4":"E4.wav","F4":"F4.wav","F#4":"F#4.wav",
-  "G4":"G4.wav","G#4":"G#4.wav","A4":"A4.wav","A#4":"A#4.wav","B4":"B4.wav",
-  "C5":"C5.wav","C#5":"C#5.wav","D5":"D5.wav","D#5":"D#5.wav","E5":"E5.wav","F5":"F5.wav","F#5":"F#5.wav",
-  "G5":"G5.wav","G#5":"G#5.wav","A5":"A5.wav","A#5":"A#5.wav","B5":"B5.wav",
+  "C4":"C4.wav","C#4":"C#4.wav","D4":"D4.wav","D#4":"D#4.wav","E4":"E4.wav","F4":"F4.wav","F#4":"F#4.wav","G4":"G4.wav","G#4":"G#4.wav","A4":"A4.wav","A#4":"A#4.wav","B4":"B4.wav",
+  "C5":"C5.wav","C#5":"C#5.wav","D5":"D5.wav","D#5":"D#5.wav","E5":"E5.wav","F5":"F5.wav","F#5":"F#5.wav","G5":"G5.wav","G#5":"G#5.wav","A5":"A5.wav","A#5":"A#5.wav","B5":"B5.wav",
   "C6":"C6.wav"
 };
 
 async function changeSound(sound){
   currentSound = sound;
-  await Tone.start(); // ensure AudioContext started
   if(sound === 'piano' && !pianoSampler){
     pianoSampler = new Tone.Sampler({
       urls: pianoSampleMap,
       baseUrl: githubBase
     }).toDestination();
     await pianoSampler.loaded;
+    console.log("Piano sampler loaded");
   }
 }
 
-// ------------------- Play chord -------------------
+// ------------------- Play chord sequentially -------------------
 async function playChord(notes){
-  await Tone.start(); // make sure AudioContext is ready
+  await Tone.start(); // ensure AudioContext is running
   if(currentSound==='piano' && pianoSampler){
-    // Play each note in order
-    for (let n of notes){
-      let key = n; // use exact note from button
-      if(pianoSampleMap[key]){
-        pianoSampler.triggerAttackRelease(key,"1n");
-        await new Promise(r => setTimeout(r, 250)); // slight delay for sequential sound
-      } else {
-        console.warn("No sample for note:", key);
-      }
+    for(let n of notes){
+      if(pianoSampleMap[n]){
+        pianoSampler.triggerAttackRelease(n,"0.4n");
+        await new Promise(r=>setTimeout(r,400));
+      } else console.warn("No sample for note:", n);
     }
   } else {
-    // PolySynth fallback
     if(currentSynth){ currentSynth.dispose(); currentSynth=null; }
     currentSynth = new Tone.PolySynth(Tone.Synth).toDestination();
-    // Play notes simultaneously if you want PolySynth, or sequentially:
-    for (let n of notes){
-      currentSynth.triggerAttackRelease(n,"1n");
-      await new Promise(r => setTimeout(r, 250)); // sequential
-    }
+    currentSynth.triggerAttackRelease(notes.map(n=>n+'5'),"1n");
   }
 }
 
-// ------------------- Generate table -------------------
+function playChordFromButton(btn){
+  const chordText = btn.querySelector('.chordText').textContent.trim();
+  if(!chordText) return;
+  const notes = chordText.split('-');
+  playChord(notes);
+}
+
+function playSourceTriad(){if(activeSourceTriad.length>0) playChord(activeSourceTriad);}
+
+// ------------------- Generate table and buttons -------------------
 function generateTable(){
   const scaleKey=document.getElementById('scaleSelect').value;
   const scale=scales[scaleKey];
@@ -276,8 +275,8 @@ function updateButtonColorFromSelect(select){
   if(chordObj) chordObj.color=select.value;
 }
 
+// initialize table
 generateTable();
 </script>
 </body>
 </html>
-
