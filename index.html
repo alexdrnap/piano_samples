@@ -167,7 +167,7 @@ async function playChord(notes){
   } else if(currentSound === 'PolySynth'){
     if(currentSynth){ currentSynth.dispose(); currentSynth=null; }
     currentSynth = new Tone.PolySynth(Tone.Synth).toDestination();
-    currentSynth.triggerAttackRelease(notes.map(n=>n+"5"),"1n");
+    currentSynth.triggerAttackRelease(notes.map(n=>"+"+n+"5"),"1n");
   }
 }
 
@@ -183,8 +183,45 @@ function playSourceTriad(){if(activeSourceTriad.length>0) playChord(activeSource
 
 // ------------------- Generate table -------------------
 function generateTable(){
-  // same as previous HTML code, generates table and buttons
-  // ...
+  const scaleKey=document.getElementById('scaleSelect').value;
+  const scale=scales[scaleKey];
+  activeSourceTriad=baseTriads[scaleKey];
+
+  let cTriads=[];
+  let mainC=generateTriads(baseTriads[scaleKey]);
+  mainC.forEach(t=>{
+    const [color,degree]=classify(t,baseTriads[scaleKey],scale);
+    const name=nameTriad(t);
+    if(name) cTriads.push({triad:t,color,degree,name});
+  });
+
+  let uniqueC=[]; let seen=new Set();
+  cTriads.forEach(obj=>{
+    let canonical=obj.triad.slice().sort((a,b)=>noteOrder.indexOf(a)-noteOrder.indexOf(b)).join(',');
+    if(!seen.has(canonical)){seen.add(canonical); uniqueC.push(obj);}
+  });
+  currentTriads=uniqueC;
+
+  // Table
+  let html='<table><tr><th>Triad</th><th>Chord Name</th><th>Category</th><th>Degree</th></tr>';
+  uniqueC.forEach(obj=>{
+    html+=`<tr><td>${obj.triad.join('-')}</td><td>${obj.name}</td><td>${obj.color}</td><td>${obj.degree}</td></tr>`;
+  });
+  html+='</table>';
+  document.getElementById('output').innerHTML=html;
+
+  // Buttons
+  let colors=['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
+  let btnHTML='';
+  colors.forEach(c=>{
+    let filtered=currentTriads.filter(t=>t.color===c);
+    let randomChord=filtered[Math.floor(Math.random()*filtered.length)];
+    let chordName=randomChord ? randomChord.name : '';
+    let chordNotes=randomChord ? randomChord.triad : [];
+    let colorHex=colorMap[c];
+    btnHTML+=`<button class='colorBtn' style='background-color:${colorHex};' onclick='playChord(${JSON.stringify(chordNotes)})'>${chordNotes.join('-')}<span class='chordName'>${chordName}</span></button>`;
+  });
+  document.getElementById('buttons').innerHTML=btnHTML;
 }
 
 generateTable();
