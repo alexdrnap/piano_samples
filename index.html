@@ -3,18 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chord Familiarity Generator - Real Piano + PolySynth</title>
+<title>Chord Familiarity Generator - Real Piano</title>
 <style>
 body { font-family: sans-serif; padding: 10px; }
 table { border-collapse: collapse; margin-top: 10px; width: 100%; }
 td, th { border: 1px solid #888; padding: 5px 10px; text-align: center; }
 button.colorBtn { margin: 3px; padding: 10px; min-width: 100px; display: flex; flex-direction: column; align-items: center; }
 button .chordName { font-size: 0.7em; color: #333; }
+.colorSelect { margin-left:5px; vertical-align:middle; }
 button#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-color:#66CC66; color:#000; }
 </style>
 </head>
 <body>
-<h2>Chord Familiarity Generator - Real Piano + PolySynth</h2>
+<h2>Chord Familiarity Generator - Real Piano</h2>
 
 <label for="scaleSelect">Select reference scale:</label>
 <select id="scaleSelect" onchange="generateTable()">
@@ -26,6 +27,7 @@ button#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-co
 
 <br><br>
 <button id="playSource" onclick="playSourceTriad()">Play Source Triad</button>
+
 <br><br>
 <label for="soundSelect">Select sound:</label>
 <select id="soundSelect" onchange="changeSound(this.value)">
@@ -39,7 +41,7 @@ button#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-co
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
-// -------------------- Notes & Scales --------------------
+// ------------------- Note & scale utils -------------------
 const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function noteIndex(note){return noteOrder.indexOf(note);}
 function transpose(note,semitones){return noteOrder[(noteIndex(note)+12+semitones)%12];}
@@ -67,7 +69,7 @@ let currentSynth=null;
 
 const colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
 
-// -------------------- Triad Classification --------------------
+// ------------------- Triad classification -------------------
 function classify(triad,refBase,scale){
   let same=triad.filter(n=>refBase.includes(n)).length;
   let inScale=triad.filter(n=>!refBase.includes(n)&&scale.includes(n)).length;
@@ -96,6 +98,13 @@ function nameTriad(triad){
   const semitone=note=>noteOrder.indexOf(note);
   const mod12=n=> (n+12)%12;
   let tri=triad.map(n=>semitone(n));
+
+  function intervalsFrom(rot){
+    let ints=rot.map(n=>mod12(n-rot[0]));
+    ints.sort((a,b)=>a-b);
+    return ints;
+  }
+
   const triads=[
     {i:[0,4,7],l:'major'},
     {i:[0,3,7],l:'minor'},
@@ -104,9 +113,10 @@ function nameTriad(triad){
     {i:[0,2,7],l:'sus2'},
     {i:[0,5,7],l:'sus4'}
   ];
+
   for(let s=0;s<3;s++){
     let rot=[tri[s],tri[(s+1)%3],tri[(s+2)%3]];
-    let ints=rot.map(n=> (n-rot[0]+12)%12 ).sort((a,b)=>a-b);
+    let ints=intervalsFrom(rot);
     for(let t of triads){
       if(JSON.stringify(ints)===JSON.stringify(t.i)){
         return noteOrder[rot[0]]+' '+t.l;
@@ -116,7 +126,7 @@ function nameTriad(triad){
   return '';
 }
 
-// -------------------- Triad Generation --------------------
+// ------------------- Triad generation -------------------
 function generateTriads(base){
   const semis=[-2,-1,0,1,2];
   let results=new Set();
@@ -129,43 +139,52 @@ function generateTriads(base){
   return Array.from(results).map(r=>r.split(','));
 }
 
-// -------------------- Real Piano Sampler --------------------
-pianoSampler = new Tone.Sampler({
-  urls: {
-    "G4#":"G4#.mp3","Ab4":"Ab4.mp3","A4":"A4.mp3","A#4":"A#4.mp3","Bb4":"Bb4.mp3","B4":"B4.mp3",
-    "C5":"C5.mp3","C#5":"C#5.mp3","Db5":"Db5.mp3","D5":"D5.mp3","D#5":"D#5.mp3","Eb5":"Eb5.mp3",
-    "E5":"E5.mp3","F5":"F5.mp3","F#5":"F#5.mp3","Gb5":"Gb5.mp3","G5":"G5.mp3","G#5":"G#5.mp3",
-    "Ab5":"Ab5.mp3","A5":"A5.mp3","A#5":"A#5.mp3","Bb5":"Bb5.mp3","B5":"B5.mp3","C6":"C6.mp3"
-  },
-  baseUrl: "https://raw.githubusercontent.com/alexdrnap/piano_samples/main/",
-  onload: ()=>{ console.log("Samples loaded"); }
-}).toDestination();
+// ------------------- Real piano samples mapping from GitHub -------------------
+const githubBase = "https://raw.githubusercontent.com/alexdrnap/piano_samples/main/";
+const pianoSampleMap = {
+  "G#4":"G4#.mp3","Ab4":"Ab4.mp3","A4":"A4.mp3","A#4":"A#4.mp3","Bb4":"Bb4.mp3","B4":"B4.mp3",
+  "C5":"C5.mp3","C#5":"C#5.mp3","Db5":"Db5.mp3","D5":"D5.mp3","D#5":"D#5.mp3","Eb5":"Eb5.mp3",
+  "E5":"E5.mp3","F5":"F5.mp3","F#5":"F#5.mp3","Gb5":"Gb5.mp3","G5":"G5.mp3","G#5":"G#5.mp3",
+  "Ab5":"Ab5.mp3","A5":"A5.mp3","A#5":"A#5.mp3","Bb5":"Bb5.mp3","B5":"B5.mp3","C6":"C6.mp3"
+};
 
-// -------------------- Sound Change --------------------
-function changeSound(sound){
+async function changeSound(sound){
   currentSound = sound;
-  if(sound === 'PolySynth'){
-    if(currentSynth){ currentSynth.dispose(); currentSynth=null; }
-    currentSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+  if(sound === 'piano' && !pianoSampler){
+    pianoSampler = new Tone.Sampler({
+      urls: pianoSampleMap,
+      baseUrl: githubBase
+    }).toDestination();
+    await pianoSampler.loaded;
   }
 }
 
-// -------------------- Play Chord --------------------
+// ------------------- Play chord simultaneously -------------------
 async function playChord(notes){
   await Tone.start();
-  if(currentSound==='piano'){
-    notes.forEach(n=>pianoSampler.triggerAttackRelease(n,"1n"));
-  } else if(currentSound==='PolySynth'){
+  if(currentSound==='piano' && pianoSampler){
+    notes.forEach(n=>{
+      // map exact note from sample list
+      let key = Object.keys(pianoSampleMap).find(k=>normalizeEnharmonics([k])[0].replace(/[0-9]/g,'') === n.replace(/[0-9]/g,''));
+      if(key) pianoSampler.triggerAttackRelease(key,"1n");
+    });
+  } else {
     if(currentSynth){ currentSynth.dispose(); currentSynth=null; }
     currentSynth = new Tone.PolySynth(Tone.Synth).toDestination();
-    currentSynth.triggerAttackRelease(notes.map(n=>n+"5"),"1n");
+    currentSynth.triggerAttackRelease(notes.map(n=>n+'5'),"1n");
   }
 }
 
-// -------------------- Play Source --------------------
-function playSourceTriad(){ if(activeSourceTriad.length>0) playChord(activeSourceTriad); }
+function playChordFromButton(btn){
+  const chordText = btn.querySelector('.chordText').textContent.trim();
+  if(!chordText) return;
+  const notes = chordText.split('-');
+  playChord(notes);
+}
 
-// -------------------- Generate Table --------------------
+function playSourceTriad(){if(activeSourceTriad.length>0) playChord(activeSourceTriad);}
+
+// ------------------- Generate table and buttons -------------------
 function generateTable(){
   const scaleKey=document.getElementById('scaleSelect').value;
   const scale=scales[scaleKey];
@@ -174,11 +193,31 @@ function generateTable(){
   let cTriads=[];
   let mainC=generateTriads(baseTriads[scaleKey]);
   mainC.forEach(t=>{
-    const [color,degree]=classify(t,baseTriads[scaleKey],scale);
+    const refBase=baseTriads[scaleKey];
+    const [color,degree]=classify(t,refBase,scale);
     const name=nameTriad(t);
-    if(name) cTriads.push({triad:t,color,degree,name});
+    if(name) cTriads.push({triad:t,color,degree,name,source:scaleKey});
   });
 
+  if(scaleKey!=='major'){
+    let dimC=generateTriads(dimTriad);
+    dimC.forEach(t=>{
+      const refBase=baseTriads[scaleKey];
+      const [color,degree]=classify(t,refBase,scale);
+      const name=nameTriad(t);
+      if(name) cTriads.push({triad:t,color,degree,name,source:'C dim'});
+    });
+  } else {
+    let augC=generateTriads(augTriad);
+    augC.forEach(t=>{
+      const refBase=baseTriads[scaleKey];
+      const [color,degree]=classify(t,refBase,scale);
+      const name=nameTriad(t);
+      if(name) cTriads.push({triad:t,color,degree,name,source:'C aug'});
+    });
+  }
+
+  // Deduplicate
   let uniqueC=[]; let seen=new Set();
   cTriads.forEach(obj=>{
     let canonical=obj.triad.slice().sort((a,b)=>noteOrder.indexOf(a)-noteOrder.indexOf(b)).join(',');
@@ -186,25 +225,52 @@ function generateTable(){
   });
   currentTriads=uniqueC;
 
-  // Table
-  let html='<table><tr><th>Triad</th><th>Chord Name</th><th>Category</th><th>Degree</th></tr>';
+  // Table output
+  let html='<table><tr><th>Triad</th><th>Chord Name</th><th>Category</th><th>Degree</th><th>Source</th></tr>';
   uniqueC.forEach(obj=>{
-    html+=`<tr><td>${obj.triad.join('-')}</td><td>${obj.name}</td><td>${obj.color}</td><td>${obj.degree}</td></tr>`;
+    html+=`<tr><td>${obj.triad.join('-')}</td><td>${obj.name}</td><td>${obj.color}</td><td>${obj.degree}</td><td>${obj.source}</td></tr>`;
   });
   html+='</table>';
   document.getElementById('output').innerHTML=html;
 
-  // Buttons
+  // Buttons by color
   let colors=['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
   let btnHTML='';
   colors.forEach(c=>{
     let filtered=currentTriads.filter(t=>t.color===c);
-    let randomChord=filtered[Math.floor(Math.random()*filtered.length)];
-    if(randomChord){
-      btnHTML+=`<button class='colorBtn' onclick='playChord(${JSON.stringify(randomChord.triad)})'>${randomChord.triad.join('-')}<span class='chordName'>${randomChord.name}</span></button>`;
-    }
+    let randomChord=filtered.length>0 ? filtered[Math.floor(Math.random()*filtered.length)] : null;
+    let chordName=randomChord ? randomChord.name : '';
+    let chordNotes=randomChord ? randomChord.triad : [];
+    let colorHex=colorMap[c];
+    btnHTML+=`<div style="margin-bottom:5px;">
+      <button class='colorBtn' style='background-color:${colorHex};' onclick='pickChord("${c}", this)'>
+        <span class="chordText">${chordNotes.join('-')}</span>
+        <span class='chordName'>${chordName}</span>
+      </button>
+      <select class='colorSelect' onchange='updateButtonColorFromSelect(this)'>
+        ${Object.entries(colorMap).map(([k,v])=>`<option value='${v}' ${v===colorHex?'selected':''}>${k}</option>`).join('')}
+      </select>
+      <button onclick='playChordFromButton(this.previousElementSibling.previousElementSibling)'>Play</button>
+    </div>`;
   });
   document.getElementById('buttons').innerHTML=btnHTML;
+}
+
+function pickChord(color,btn){
+  let filtered=currentTriads.filter(t=>t.color===color);
+  if(filtered.length>0){
+    let choice=filtered[Math.floor(Math.random()*filtered.length)];
+    btn.querySelector('.chordText').textContent = choice.triad.join('-');
+    btn.querySelector('.chordName').textContent = choice.name;
+  }
+}
+
+function updateButtonColorFromSelect(select){
+  let btn=select.previousElementSibling;
+  btn.style.backgroundColor=select.value;
+  let chordText=btn.querySelector('.chordText').textContent.trim();
+  let chordObj=currentTriads.find(t=>t.triad.join('-')===chordText);
+  if(chordObj) chordObj.color=select.value;
 }
 
 generateTable();
