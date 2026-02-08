@@ -2,290 +2,181 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chord Familiarity Generator - Real Piano</title>
+<title>Chord Familiarity Generator</title>
+<script src="https://unpkg.com/tone@latest"></script>
+
 <style>
 body { font-family: sans-serif; padding: 10px; }
-table { border-collapse: collapse; margin-top: 10px; width: 100%; }
-td, th { border: 1px solid #888; padding: 5px 10px; text-align: center; }
-button.colorBtn { padding: 10px; min-width: 100px; display: flex; flex-direction: column; align-items: center; font-weight:bold; }
-button.smallBtn { margin-top: 3px; padding: 5px 10px; font-size: 0.8em; }
-.controls { display: flex; flex-direction: column; margin-top: 5px; }
-.buttonRow { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
-.colorSelect { margin-top:3px; }
-#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-color:#66CC66; color:#000; }
+table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+th, td { border: 1px solid #888; padding: 6px; text-align: center; }
+
+.buttonRow { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.colorBtn {
+  padding: 10px;
+  min-width: 120px;
+  font-weight: bold;
+  pointer-events: none;
+}
+.controls { display: flex; flex-direction: column; gap: 4px; }
+.smallBtn { font-size: 0.8em; padding: 4px; }
 </style>
 </head>
-<body>
-<h2>Chord Familiarity Generator - Real Piano</h2>
-<div id="sourceTriadDisplay" style="font-weight:bold; margin-bottom:10px;"></div>
 
-<label for="scaleSelect">Select reference scale:</label>
-<select id="scaleSelect" onchange="generateTable()">
+<body>
+
+<h2>Chord Familiarity Generator</h2>
+
+<select id="scaleSelect">
   <option value="major">Major</option>
   <option value="naturalMinor">Natural Minor</option>
   <option value="harmonicMinor">Harmonic Minor</option>
   <option value="melodicMinor">Melodic Minor</option>
 </select>
 
-<br><br>
-<button id="playSource" onclick="playSourceTriad()">Play Source Triad</button>
-
-<br><br>
 <div id="buttons" class="buttonRow"></div>
 <div id="output"></div>
 
-<script src="https://unpkg.com/tone@latest"></script>
 <script>
-// ------------------- Note & scale utils -------------------
-const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-function noteIndex(note){return noteOrder.indexOf(note);}
-function transpose(note,semitones){return noteOrder[(noteIndex(note)+12+semitones)%12];}
-
-const scales={
+// ================= DATA =================
+const noteOrder = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const scales = {
   major:['C','D','E','F','G','A','B'],
   naturalMinor:['C','D','Eb','F','G','Ab','Bb'],
   harmonicMinor:['C','D','Eb','F','G','Ab','B'],
   melodicMinor:['C','D','Eb','F','G','A','B']
 };
-const baseTriads={
+const baseTriads = {
   major:['C','E','G'],
   naturalMinor:['C','Eb','G'],
   harmonicMinor:['C','Eb','G'],
   melodicMinor:['C','Eb','G']
 };
-const dimTriad=['C','Eb','Gb'];
-const augTriad=['C','E','G#'];
 
-let currentTriads=[];
-let pianoSampler;
-let activeSourceTriad=[];
-const colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
+const colorMap = {
+  RED:'#FF4C4C', ORANGE:'#FF9900', GOLD:'#FFD700', YELLOW:'#FFFF66',
+  BLUE:'#6699FF', WHITE:'#FFFFFF',
+  "LIGHT GREY":'#CCCCCC', "DARK GREY":'#888888', BLACK:'#000000'
+};
 
-// ------------------- Triad classification -------------------
-function classify(triad,refBase,scale){
-  let same=triad.filter(n=>refBase.includes(n)).length;
-  let inScale=triad.filter(n=>!refBase.includes(n)&&scale.includes(n)).length;
-  let outScale=triad.length-same-inScale;
-  if(same==2&&inScale==1)return['RED','3/4'];
-  if(same==2&&outScale==1)return['ORANGE','3/5'];
-  if(same==1&&inScale==2)return['GOLD','1/2'];
-  if(same==1&&inScale==1&&outScale==1)return['YELLOW','2/5'];
-  if(same==1&&outScale==2)return['BLUE','1/3'];
-  if(same==0&&inScale==3)return['WHITE','1/6'];
-  if(same==0&&inScale==2&&outScale==1)return['LIGHT GREY','1/10'];
-  if(same==0&&inScale==1&&outScale==2)return['DARK GREY','1/20'];
-  if(same==0&&outScale==3)return['BLACK','0'];
-  return['UNKNOWN','-'];
+let chordBuckets = {};   // color → list of chords
+let piano;
+
+// ================= UTILS =================
+const enh = n => ({Db:'C#',Eb:'D#',Gb:'F#',Ab:'G#',Bb:'A#'}[n]||n);
+const normalize = triad => triad.map(enh);
+const idx = n => noteOrder.indexOf(enh(n));
+const tr = (n,s)=>noteOrder[(idx(n)+12+s)%12];
+
+// ================= CLASSIFY =================
+function classify(triad,base,scale){
+  let same = triad.filter(n=>base.includes(n)).length;
+  let inScale = triad.filter(n=>!base.includes(n)&&scale.includes(n)).length;
+  let out = 3-same-inScale;
+  if(same==2&&inScale==1) return 'RED';
+  if(same==2&&out==1) return 'ORANGE';
+  if(same==1&&inScale==2) return 'GOLD';
+  if(same==1&&inScale==1&&out==1) return 'YELLOW';
+  if(same==1&&out==2) return 'BLUE';
+  if(same==0&&inScale==3) return 'WHITE';
+  if(same==0&&inScale==2&&out==1) return 'LIGHT GREY';
+  if(same==0&&inScale==1&&out==2) return 'DARK GREY';
+  return 'BLACK';
 }
 
-// ------------------- Flats to sharps -------------------
-function normalizeEnharmonics(triad){
-  return triad.map(n=>{
-    switch(n){case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default: return n;}
+// ================= GENERATION =================
+function generateTriads(base){
+  let out=new Set();
+  for(let a=-2;a<=2;a++)
+    for(let b=-2;b<=2;b++)
+      for(let c=-2;c<=2;c++)
+        out.add([tr(base[0],a),tr(base[1],b),tr(base[2],c)].join(','));
+  return [...out].map(x=>x.split(','));
+}
+
+// ================= AUDIO =================
+async function playChord(notes){
+  if(!piano){
+    await Tone.start();
+    piano = new Tone.Sampler({
+      urls:{C5:"C5.wav",D5:"D5.wav",E5:"E5.wav",F5:"F5.wav",G5:"G5.wav",A5:"A5.wav",B5:"B5.wav"},
+      baseUrl:"https://raw.githubusercontent.com/alexdrnap/piano_samples/main/"
+    }).toDestination();
+    await piano.loaded;
+  }
+  normalize(notes).forEach(n=>piano.triggerAttackRelease(n+"5","1n"));
+}
+
+// ================= UI =================
+function render(){
+  const scaleKey = scaleSelect.value;
+  const scale = scales[scaleKey];
+  const base = baseTriads[scaleKey];
+
+  chordBuckets = {};
+  Object.keys(colorMap).forEach(c=>chordBuckets[c]=[]);
+
+  generateTriads(base).forEach(t=>{
+    const tri = normalize(t);
+    const col = classify(t,base,scale);
+    chordBuckets[col].push(tri);
+  });
+
+  renderButtons();
+  renderTable();
+}
+
+function renderButtons(){
+  buttons.innerHTML='';
+  Object.entries(chordBuckets).forEach(([color,list])=>{
+    if(!list.length) return;
+
+    const wrap=document.createElement('div');
+    wrap.innerHTML=`
+      <button class="colorBtn" style="background:${colorMap[color]}">
+        <span class="txt">${list[0].join('-')}</span>
+      </button>
+      <div class="controls">
+        <button class="smallBtn">«</button>
+        <button class="smallBtn">»</button>
+        <button class="smallBtn">Play</button>
+      </div>
+    `;
+    let idx=0;
+
+    wrap.querySelectorAll('.smallBtn')[0].onclick=()=>{
+      idx=(idx-1+list.length)%list.length;
+      wrap.querySelector('.txt').textContent=list[idx].join('-');
+    };
+    wrap.querySelectorAll('.smallBtn')[1].onclick=()=>{
+      idx=(idx+1)%list.length;
+      wrap.querySelector('.txt').textContent=list[idx].join('-');
+    };
+    wrap.querySelectorAll('.smallBtn')[2].onclick=()=>{
+      playChord(list[idx]);
+    };
+
+    buttons.appendChild(wrap);
   });
 }
 
-// ------------------- Triad name -------------------
-function nameTriad(triad){
-  if(new Set(triad).size<3) return '';
-  triad=normalizeEnharmonics(triad);
-  const semitone=note=>noteOrder.indexOf(note);
-  const mod12=n=> (n+12)%12;
-  let tri=triad.map(n=>semitone(n));
-  function intervalsFrom(rot){let ints=rot.map(n=>mod12(n-rot[0])); ints.sort((a,b)=>a-b); return ints;}
-  const triads=[{i:[0,4,7],l:'major'},{i:[0,3,7],l:'minor'},{i:[0,3,6],l:'dim'},{i:[0,4,8],l:'aug'},{i:[0,2,7],l:'sus2'},{i:[0,5,7],l:'sus4'}];
-  for(let s=0;s<3;s++){
-    let rot=[tri[s],tri[(s+1)%3],tri[(s+2)%3]]; let ints=intervalsFrom(rot);
-    for(let t of triads){if(JSON.stringify(ints)===JSON.stringify(t.i)){return noteOrder[rot[0]]+' '+t.l;} }
-  }
-  return '';
-}
-
-// ------------------- Triad generation -------------------
-function generateTriads(base){
-  const semis=[-2,-1,0,1,2];
-  let results=new Set();
-  for(let i=0;i<3;i++) for(let s of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s); results.add(tri.join(',')); }
-  for(let i=0;i<2;i++) for(let j=i+1;j<3;j++) for(let s1 of semis) for(let s2 of semis){
-    let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(',')); }
-  for(let s1 of semis) for(let s2 of semis) for(let s3 of semis){
-    results.add([transpose(base[0],s1),transpose(base[1],s2),transpose(base[2],s3)].join(','));
-  }
-  return Array.from(results).map(r=>r.split(','));
-}
-
-// ------------------- Piano Samples -------------------
-const pianoSampleMapFirstCode = {
-  "G#4":"GSharp4.wav","A4":"A4.wav","A#4":"ASharp4.wav","B4":"B4.wav",
-  "C5":"C5.wav","C#5":"CSharp5.wav","D5":"D5.wav","D#5":"DSharp5.wav","E5":"E5.wav",
-  "F5":"F5.wav","F#5":"FSharp5.wav","G5":"G5.wav","G#5":"GSharp5.wav",
-  "A5":"A5.wav","A#5":"ASharp5.wav","B5":"B5.wav","C6":"C6.wav"
-};
-const githubBase = "https://raw.githubusercontent.com/alexdrnap/piano_samples/main/";
-
-// ------------------- Audio -------------------
-async function resumeAudioContext(){if(Tone.context.state!=='running'){await Tone.start();}}
-function noteToIndex(note){ return noteOrder.indexOf(note.replace('b','#')); }
-
-// Custom chord order rules
-function reorderChord(notes){
-  if(notes.length<3) return notes;
-  let idx1 = noteToIndex(notes[0]);
-  let idx2 = noteToIndex(notes[1]);
-  let idx3 = noteToIndex(notes[2]);
-  if( (idx1 - idx2 === 1) || (idx1 - idx2 === 2) ) return [notes[1], notes[0], notes[2]];
-  if( (idx2 - idx3 === 1) || (idx2 - idx3 === 2) ) return [notes[0], notes[2], notes[1]];
-  return notes;
-}
-
-async function playChord(notes){
-  await resumeAudioContext();
-  if(!pianoSampler){
-    pianoSampler = new Tone.Sampler({urls:pianoSampleMapFirstCode, baseUrl: githubBase}).toDestination();
-    await pianoSampler.loaded;
-  }
-  notes = normalizeEnharmonics(notes);
-  notes = reorderChord(notes);
-  const availableNotes = Object.keys(pianoSampleMapFirstCode);
-  const filteredNotes = notes.map(note => {
-    for (let octave of ["4","5","6"]) {
-      let key = note + octave;
-      let sharpKey = note.replace('#','Sharp') + octave;
-      if(availableNotes.includes(key)) return key;
-      if(availableNotes.includes(sharpKey)) return sharpKey;
-    }
-    return null;
-  }).filter(n => n !== null);
-  filteredNotes.forEach(n=>pianoSampler.triggerAttackRelease(n,"1n"));
-}
-
-function playChordFromButton(btn){
-  const chordText = btn.querySelector('.chordText').textContent.trim();
-  if(!chordText) return;
-  const notes = chordText.split('-');
-  playChord(notes);
-}
-function playSourceTriad(){if(activeSourceTriad.length>0) playChord(activeSourceTriad);}
-
-// ----------------- Table & Buttons -----------------
-function generateTable() {
-    const scaleSelect = document.getElementById('scaleSelect');
-    if(!scaleSelect) return;
-    const scaleKey = scaleSelect.value;
-    const scale = scales[scaleKey];
-    activeSourceTriad = baseTriads[scaleKey];
-
-    document.getElementById('sourceTriadDisplay').textContent = 
-        "Source Triad: " + normalizeEnharmonics(activeSourceTriad).join('-');
-
-    let cTriads = [];
-    generateTriads(baseTriads[scaleKey]).forEach(t => {
-        const [color, degree] = classify(t, baseTriads[scaleKey], scale);
-        const name = nameTriad(t);
-        if (name) cTriads.push({ triad: normalizeEnharmonics(t), color, degree, name, source: scaleKey });
+function renderTable(){
+  let html=`<table><tr><th>Triad</th><th>Category</th></tr>`;
+  Object.entries(chordBuckets).forEach(([c,list])=>{
+    list.forEach(t=>{
+      html+=`<tr>
+        <td>${t.join('-')}</td>
+        <td style="background:${colorMap[c]}">${c}</td>
+      </tr>`;
     });
-
-    if (scaleKey !== 'major') {
-        generateTriads(dimTriad).forEach(t => {
-            const [color, degree] = classify(t, baseTriads[scaleKey], scale);
-            const name = nameTriad(t);
-            if (name) cTriads.push({ triad: normalizeEnharmonics(t), color, degree, name, source: 'C dim' });
-        });
-    } else {
-        generateTriads(augTriad).forEach(t => {
-            const [color, degree] = classify(t, baseTriads[scaleKey], scale);
-            const name = nameTriad(t);
-            if (name) cTriads.push({ triad: normalizeEnharmonics(t), color, degree, name, source: 'C aug' });
-        });
-    }
-
-    let uniqueC = [], seen = new Set();
-    cTriads.forEach(obj => {
-        let key = obj.triad.join(',');
-        if (!seen.has(key)) { seen.add(key); uniqueC.push(obj); }
-    });
-    currentTriads = uniqueC;
-
-    const colorOrder = ['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
-    let html = '<table><tr><th>Triad</th><th>Chord Name</th><th>Category</th><th>Degree</th><th>Source</th></tr>';
-    colorOrder.forEach(c => {
-        currentTriads.filter(t => t.color === c).forEach(obj => {
-            let textColor = (c === 'BLACK') ? '#fff' : '#000';
-            html += `<tr><td>${obj.triad.join('-')}</td><td>${obj.name}</td><td style="background-color:${colorMap[c]}; color:${textColor}">${c}</td><td>${obj.degree}</td><td>${obj.source}</td></tr>`;
-        });
-    });
-    html += '</table>';
-    document.getElementById('output').innerHTML = html;
-
-    let btnHTML = '';
-    colorOrder.forEach(c => {
-        let filtered = currentTriads.filter(t => t.color === c);
-        if (filtered.length === 0) return;
-        let choice = filtered[0];
-        let textColor = (c === 'BLACK') ? '#fff' : '#000';
-        btnHTML += `<div>
-            <button class='colorBtn' style='background-color:${colorMap[c]}; color:${textColor}' data-color='${c}'>
-                <span class="chordText">${choice.triad.join('-')}</span>
-                <span class='chordName'>${choice.name}</span>
-            </button>
-            <div class="controls">
-              <button class="smallBtn" onclick="prevChord(this)">«</button>
-              <button class="smallBtn" onclick="playChordFromButton(this.previousElementSibling.previousElementSibling)">Play</button>
-              <select class='colorSelect' onchange='updateButtonColorFromSelect(this)'>
-                ${Object.entries(colorMap).map(([k,v])=>`<option value='${k}' ${k===c?'selected':''}>${k}</option>`).join('')}
-              </select>
-            </div>
-        </div>`;
-    });
-    document.getElementById('buttons').innerHTML = btnHTML;
-
-    document.querySelectorAll('.colorBtn').forEach(btn => {
-        const color = btn.dataset.color;
-        const filtered = currentTriads.filter(t => t.color === color);
-        btn.buttonState = { list: filtered, index: 0 };
-    });
+  });
+  html+='</table>';
+  output.innerHTML=html;
 }
 
-function nextChord(btn) {
-    let state = btn.buttonState;
-    if (!state || state.list.length === 0) return;
-    state.index = (state.index + 1) % state.list.length;
-    let choice = state.list[state.index];
-    btn.querySelector('.chordText').textContent = choice.triad.join('-');
-    btn.querySelector('.chordName').textContent = choice.name;
-    playChord(choice.triad);
-}
-
-function prevChord(btn){
-    let colorBtn = btn.parentElement.previousElementSibling;
-    let state = colorBtn.buttonState;
-    if (!state || state.list.length === 0) return;
-    state.index = (state.index - 1 + state.list.length) % state.list.length;
-    let choice = state.list[state.index];
-    colorBtn.querySelector('.chordText').textContent = choice.triad.join('-');
-    colorBtn.querySelector('.chordName').textContent = choice.name;
-    playChord(choice.triad);
-}
-
-function updateButtonColorFromSelect(select){
-    let btn = select.parentElement.previousElementSibling;
-    let newColor = select.value;
-    btn.dataset.color = newColor;
-    let filtered = currentTriads.filter(t => t.color === newColor);
-    if (filtered.length === 0) return;
-    btn.buttonState = { list: filtered, index: 0 };
-    let choice = filtered[0];
-    btn.querySelector('.chordText').textContent = choice.triad.join('-');
-    btn.querySelector('.chordName').textContent = choice.name;
-    btn.style.backgroundColor = colorMap[newColor];
-    btn.style.color = (newColor==='BLACK')?'#fff':'#000';
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    document.body.addEventListener('click', async () => { await Tone.start(); }, { once: true });
-    generateTable();
-});
+// ================= INIT =================
+scaleSelect.onchange=render;
+render();
 </script>
+
 </body>
 </html>
