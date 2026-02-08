@@ -32,7 +32,7 @@ button .chordName { font-size: 0.7em; color: #333; }
 </select>
 <br><br>
 
-<button id="playSource">
+<button id="playSource" onclick="playSourceTriad()">
   Play Source Triad
   <div id="sourceTriadLabel"></div>
 </button>
@@ -50,11 +50,10 @@ button .chordName { font-size: 0.7em; color: #333; }
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
-// --- Module 1: Data and helpers ---
+// --- Module 1: Data and helper functions ---
 const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function noteIndex(note){return noteOrder.indexOf(note);}
 function transpose(note,semitones){return noteOrder[(noteIndex(note)+12+semitones)%12];}
-const displayMap = {D#:'Eb',G#:'Ab',A#:'Bb',C#:'Db',F#:'Gb'};
 
 const scales={
   major:['C','D','E','F','G','A','B'],
@@ -109,10 +108,6 @@ function normalizeEnharmonics(triad){
   });
 }
 
-function displayNote(note){
-  return displayMap[note] || note;
-}
-
 function nameTriad(triad){
   if(new Set(triad).size<3) return '';
   triad=normalizeEnharmonics(triad);
@@ -140,7 +135,7 @@ function nameTriad(triad){
     let ints=intervalsFrom(rot);
     for(let t of triads){
       if(JSON.stringify(ints)===JSON.stringify(t.i)){
-        return displayNote(noteOrder[rot[0]])+' '+t.l;
+        return noteOrder[rot[0]]+' '+t.l;
       }
     }
   }
@@ -149,10 +144,10 @@ function nameTriad(triad){
     let rot=[tri[s],tri[(s+1)%3],tri[(s+2)%3]];
     let i1=mod12(rot[1]-rot[0]);
     let i2=mod12(rot[2]-rot[1]);
-    if(i1===2 && i2===3) return displayNote(noteOrder[rot[0]])+'1/2dim_4m';
-    if(i1===3 && i2===2) return displayNote(noteOrder[rot[2]])+'7_4M';
-    if(i1===4 && i2===2) return displayNote(noteOrder[rot[2]])+'1/2dim_3TM';
-    if(i1===2 && i2===4) return displayNote(noteOrder[rot[1]])+'7_3Tm';
+    if(i1===2 && i2===3) return noteOrder[rot[0]]+'1/2dim_4m';
+    if(i1===3 && i2===2) return noteOrder[rot[2]]+'7_4M';
+    if(i1===4 && i2===2) return noteOrder[rot[2]]+'1/2dim_3TM';
+    if(i1===2 && i2===4) return noteOrder[rot[1]]+'7_3Tm';
   }
 
   return '';
@@ -167,7 +162,7 @@ function generateTriads(base){
   return Array.from(results).map(r=>r.split(','));
 }
 
-// --- Module 2: UI ---
+// --- Module 2: Appearance / UI ---
 async function changeSound(sound){
   currentSound = sound;
   if(sound==='piano' && !pianoSampler){
@@ -183,22 +178,19 @@ async function changeSound(sound){
   }
 }
 
-// --- Module 3: Audio ---
+// --- Module 3: Audio / Playback ---
 async function playChord(notes){
   await Tone.start();
   if(currentSynth){currentSynth.dispose(); currentSynth=null;}
 
-  const playbackNotes = normalizeEnharmonics(notes);
-
   let order = [0,1,2];
-  if(playbackNotes.length===3){
-    const diff12=(noteIndex(playbackNotes[1])-noteIndex(playbackNotes[0])+12)%12;
-    const diff23=(noteIndex(playbackNotes[2])-noteIndex(playbackNotes[1])+12)%12;
+  if(notes.length===3){
+    const diff12=(noteIndex(notes[1])-noteIndex(notes[0])+12)%12;
+    const diff23=(noteIndex(notes[2])-noteIndex(notes[1])+12)%12;
     if(diff12===11||diff12===10) order=[1,0,2];
     else if(diff23===1||diff23===2) order=[0,2,1];
   }
-
-  const chordNotes = order.map(i=>playbackNotes[i]+'5');
+  const chordNotes = order.map(i=>notes[i]+'5');
 
   if(currentSound==='triangle'){
     currentSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.1,decay:0.1,sustain:0.7,release:0.3}}).toDestination();
@@ -215,13 +207,120 @@ function playSourceTriad(){
   if(activeSourceTriad.length>0) playChord(activeSourceTriad);
 }
 
-// Attach event listener properly
-document.getElementById('playSource').addEventListener('click', playSourceTriad);
+// --- Module 4: Triad navigation ---
+function triadsByColor(color){
+  return currentTriads.filter(t=>t.color===color);
+}
 
-// --- Module 4 & 5: Triad controls, table & buttons ---
-// ... same as previous script, unchanged
-// (scrollTriad, updateTriadColor, generateTable, etc.)
+function scrollTriad(container, direction){
+  const color = container.dataset.color;
+  const list = triadsByColor(color);
+  if(list.length===0) return;
+  let idx = parseInt(container.dataset.index || 0);
+  idx = (idx + direction + list.length) % list.length;
+  container.dataset.index = idx;
+  const triadObj = list[idx];
+  const btn = container.querySelector('.colorBtn');
+  btn.innerHTML = triadObj.triad.join('-') + `<span class="chordName">${triadObj.name}</span>`;
+  btn.onclick = () => playChord(triadObj.triad);
+}
 
+function updateTriadColor(select){
+  const container = select.parentNode;
+  const btn = container.querySelector('.colorBtn');
+  const newColorHex = select.value;
+  const newColor = Object.keys(colorMap).find(k=>colorMap[k]===newColorHex);
+  if(!newColor) return;
+
+  container.dataset.color = newColor;
+  container.dataset.index = 0; // reset index
+  btn.style.backgroundColor = newColorHex;
+  btn.className = 'colorBtn' + (newColor==='BLACK'?' blackBtn':'');
+  scrollTriad(container, 0);
+}
+
+// --- Module 5: Table & Buttons generation ---
+function generateTable(){
+  const scaleKey=document.getElementById('scaleSelect').value;
+  const scale=scales[scaleKey];
+  const sourceLabel=scaleKey;
+  activeSourceTriad=baseTriads[scaleKey];
+  document.getElementById('sourceTriadLabel').textContent = activeSourceTriad.join('-');
+
+  let cTriads=[];
+  let mainC=generateTriads(baseTriads[scaleKey]);
+  mainC.forEach(t=>{
+    const [color,degree]=classify(t,baseTriads[scaleKey],scale);
+    const name=nameTriad(t);
+    if(name)cTriads.push({triad:t,color,degree,name,source:sourceLabel});
+  });
+
+  if(scaleKey!=='major'){
+    let dimC=generateTriads(dimTriad);
+    dimC.forEach(t=>{
+      const [color,degree]=classify(t,baseTriads[scaleKey],scale);
+      const name=nameTriad(t);
+      if(name)cTriads.push({triad:t,color,degree,name,source:'C dim'});
+    });
+  } else {
+    let augC=generateTriads(augTriad);
+    augC.forEach(t=>{
+      const [color,degree]=classify(t,baseTriads[scaleKey],scale);
+      const name=nameTriad(t);
+      if(name)cTriads.push({triad:t,color,degree,name,source:'C aug'});
+    });
+  }
+
+  // remove duplicates
+  let uniqueC=[]; let seen=new Set();
+  cTriads.forEach(obj=>{
+    let canonical=obj.triad.slice().sort((a,b)=>noteOrder.indexOf(a)-noteOrder.indexOf(b)).join(',');
+    if(!seen.has(canonical)){seen.add(canonical); uniqueC.push(obj);}
+  });
+  currentTriads = uniqueC;
+
+  // sort by color
+  currentTriads.sort((a,b)=>colorOrder.indexOf(a.color)-colorOrder.indexOf(b.color));
+
+  // build table
+  let html='<table><tr><th>Triad</th><th>Chord Name</th><th>Category</th><th>Degree</th><th>Source</th></tr>';
+  currentTriads.forEach(o=>{
+    html+=`<tr class="${o.color==='BLACK'?'blackRow':''}" style="background-color:${colorMap[o.color]};">
+      <td>${o.triad.join('-')}</td>
+      <td>${o.name}</td>
+      <td>${o.color}</td>
+      <td>${o.degree}</td>
+      <td>${o.source}</td>
+    </tr>`;
+  });
+  html+='</table>';
+  document.getElementById('output').innerHTML=html;
+
+  // build buttons
+  let colors=colorOrder;
+  let btnHTML='';
+  colors.forEach(c=>{
+    const list = triadsByColor(c);
+    if(list.length===0) return;
+    const firstTriad = list[0];
+    btnHTML+=`
+    <div class="triadControl" data-color="${c}" data-index="0">
+      <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" style="background:${colorMap[c]}" onclick="playChord([${firstTriad.triad.map(n=>`'${n}'`)}])">
+        ${firstTriad.triad.join('-')}<span class="chordName">${firstTriad.name}</span>
+      </button>
+      <div class="navButtons">
+        <button onclick="scrollTriad(this.parentNode.parentNode,-1)">◀</button>
+        <button onclick="scrollTriad(this.parentNode.parentNode,1)">▶</button>
+      </div>
+      <select class="colorSelect" onchange="updateTriadColor(this)">
+        ${Object.entries(colorMap).map(([k,v])=>`<option value="${v}" ${v===colorMap[c]?'selected':''}>${k}</option>`).join('')}
+      </select>
+    </div>`;
+  });
+  document.getElementById('buttons').innerHTML=btnHTML;
+}
+
+// --- Initialize ---
 generateTable();
 </script>
 </body>
