@@ -163,33 +163,29 @@ async function changeSound(sound){
 
 // ------------------- Play chord -------------------
 async function playChord(notes){
-  await Tone.start(); // ensure user gesture
+  await Tone.start(); // make sure AudioContext is ready
   if(currentSound==='piano' && pianoSampler){
-    notes.forEach(n=>{
-      let key = normalizeEnharmonics([n])[0];
-      if(!key.match(/\d/)) key += '5'; // default octave if missing
+    // Play each note in order
+    for (let n of notes){
+      let key = n; // use exact note from button
       if(pianoSampleMap[key]){
         pianoSampler.triggerAttackRelease(key,"1n");
+        await new Promise(r => setTimeout(r, 250)); // slight delay for sequential sound
       } else {
         console.warn("No sample for note:", key);
       }
-    });
+    }
   } else {
+    // PolySynth fallback
     if(currentSynth){ currentSynth.dispose(); currentSynth=null; }
     currentSynth = new Tone.PolySynth(Tone.Synth).toDestination();
-    let validNotes = notes.map(n=>n.match(/\d/) ? n : n+'5');
-    currentSynth.triggerAttackRelease(validNotes,"1n");
+    // Play notes simultaneously if you want PolySynth, or sequentially:
+    for (let n of notes){
+      currentSynth.triggerAttackRelease(n,"1n");
+      await new Promise(r => setTimeout(r, 250)); // sequential
+    }
   }
 }
-
-function playChordFromButton(btn){
-  const chordText = btn.querySelector('.chordText').textContent.trim();
-  if(!chordText) return;
-  const notes = chordText.split('-');
-  playChord(notes);
-}
-
-function playSourceTriad(){if(activeSourceTriad.length>0) playChord(activeSourceTriad);}
 
 // ------------------- Generate table -------------------
 function generateTable(){
@@ -284,3 +280,4 @@ generateTable();
 </script>
 </body>
 </html>
+
