@@ -32,6 +32,7 @@ button#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-co
 <label for="soundSelect">Select sound:</label>
 <select id="soundSelect" onchange="changeSound(this.value)">
   <option value="piano">Real Piano</option>
+  <option value="PolySynth">PolySynth</option>
 </select>
 
 <br><br>
@@ -61,9 +62,10 @@ const dimTriad=['C','Eb','Gb'];
 const augTriad=['C','E','G#'];
 
 let currentTriads=[];
-let pianoSampler;
-let activeSourceTriad=[];
 let currentSound='piano';
+let pianoSampler=null;
+let activeSourceTriad=[];
+let currentSynth=null;
 
 const colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
 
@@ -130,62 +132,67 @@ function generateTriads(base){
   let results=new Set();
   for(let i=0;i<3;i++) for(let s of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s); results.add(tri.join(',')); }
   for(let i=0;i<2;i++) for(let j=i+1;j<3;j++) for(let s1 of semis) for(let s2 of semis){
-    let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(',')); }
+    let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(','));
+  }
   for(let s1 of semis) for(let s2 of semis) for(let s3 of semis){
     results.add([transpose(base[0],s1),transpose(base[1],s2),transpose(base[2],s3)].join(','));
   }
   return Array.from(results).map(r=>r.split(','));
 }
 
-// ------------------- Real piano samples mapping -------------------
+// ------------------- Real piano samples mapping from GitHub -------------------
 const githubBase = "https://raw.githubusercontent.com/alexdrnap/piano_samples/main/";
 const pianoSampleMap = {
-  "G#4":"G#4.wav","A4":"A4.wav","A#4":"A#4.wav","B4":"B4.wav",
-  "C5":"C5.wav","C#5":"C#5.wav","D5":"D5.wav","D#5":"D#5.wav",
-  "E5":"E5.wav","F5":"F5.wav","F#5":"F#5.wav","G5":"G5.wav",
-  "G#5":"G#5.wav","A5":"A5.wav","A#5":"A#5.wav","B5":"B5.wav",
-  "C6":"C6.wav"
+  "G#4":"G4#.wav","A4":"A4.wav","A#4":"A#4.wav","B4":"B4.wav",
+  "C5":"C5.wav","C#5":"C#5.wav","D5":"D5.wav","D#5":"D#5.wav","E5":"E5.wav","F5":"F5.wav","F#5":"F#5.wav",
+  "G5":"G5.wav","G#5":"G#5.wav","A5":"A5.wav","A#5":"A#5.wav","B5":"B5.wav","C6":"C6.wav"
 };
 
-// ------------------- Load piano sampler -------------------
+// ------------------- Sound selection -------------------
 async function changeSound(sound){
   currentSound = sound;
-  if(sound==='piano' && !pianoSampler){
-    pianoSampler = new Tone.Sampler({
-      urls: pianoSampleMap,
-      baseUrl: githubBase
-    }).toDestination();
-    await pianoSampler.loaded;
-    console.log("Piano sampler loaded");
+
+  if(sound === 'piano'){
+    if(!pianoSampler){
+      pianoSampler = new Tone.Sampler({
+        urls: pianoSampleMap,
+        baseUrl: githubBase
+      }).toDestination();
+      pianoSampler.loaded.then(()=>console.log("Piano sampler loaded"));
+    }
   }
 }
 
-// ------------------- Play chord in typed order -------------------
+// ------------------- Play chord -------------------
 async function playChord(notes){
-  await Tone.start(); // resume AudioContext on user gesture
+  await Tone.start();
 
-  if(!pianoSampler){
-    console.warn("Sampler not loaded");
-    return;
-  }
-
-  for(let note of notes){
-    let n = normalizeEnharmonics([note])[0];
-    let base = n.replace(/[0-9]/g,'');
-    let octave = parseInt(n.replace(/[^\d]/g,''),10);
-
-    // Clamp to G#4 → C6
-    if(octave < 4) octave = 4;
-    if(octave > 6) octave = 6;
-    let finalNote = base + octave;
-
-    if(!pianoSampleMap[finalNote]){
-      console.warn("No sample for note:", finalNote);
-      continue;
+  if(currentSound === 'piano'){
+    if(!pianoSampler) return;
+    if(!pianoSampler.loaded){
+      console.log("Waiting for sampler to load...");
+      await pianoSampler.loaded;
     }
 
-    pianoSampler.triggerAttackRelease(finalNote,"1n");
-    await new Promise(r=>setTimeout(r,50)); // small gap to play sequentially
+    for(let note of notes){
+      let n = normalizeEnharmonics([note])[0];
+      let base = n.replace(/[0-9]/g,'');
+      let octave = parseInt(n.replace(/[^\d]/g,''),10);
+      // Clamp to available samples
+      if(octave < 4) octave = 4;
+      if(octave > 6) octave = 6;
+      let finalNote = base + octave;
+      if(!pianoSampleMap[finalNote]){
+        console.warn("No sample for note:", finalNote);
+        continue;
+      }
+      pianoSampler.triggerAttackRelease(finalNote,"1n");
+      await new Promise(r=>setTimeout(r,100)); // small gap between notes
+    }
+  } else {
+    if(currentSynth){ currentSynth.dispose(); currentSynth=null; }
+    currentSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+    currentSynth.triggerAttackRelease(notes.map(n=>n+'5'),"1n");
   }
 }
 
@@ -231,7 +238,6 @@ function generateTable(){
     });
   }
 
-  // Deduplicate
   let uniqueC=[]; let seen=new Set();
   cTriads.forEach(obj=>{
     let canonical=obj.triad.slice().sort((a,b)=>noteOrder.indexOf(a)-noteOrder.indexOf(b)).join(',');
@@ -239,7 +245,6 @@ function generateTable(){
   });
   currentTriads=uniqueC;
 
-  // Table output
   let html='<table><tr><th>Triad</th><th>Chord Name</th><th>Category</th><th>Degree</th><th>Source</th></tr>';
   uniqueC.forEach(obj=>{
     html+=`<tr><td>${obj.triad.join('-')}</td><td>${obj.name}</td><td>${obj.color}</td><td>${obj.degree}</td><td>${obj.source}</td></tr>`;
@@ -247,7 +252,6 @@ function generateTable(){
   html+='</table>';
   document.getElementById('output').innerHTML=html;
 
-  // Buttons by color
   let colors=['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
   let btnHTML='';
   colors.forEach(c=>{
@@ -287,7 +291,7 @@ function updateButtonColorFromSelect(select){
   if(chordObj) chordObj.color=select.value;
 }
 
-// Initialize
+changeSound('piano'); // preload
 generateTable();
 </script>
 </body>
