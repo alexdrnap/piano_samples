@@ -147,18 +147,34 @@ function computeTriads(scaleKey){
 ======================= */
 
 function renderTable(triads){
-  let html='<table><tr><th>Triad</th><th>Category</th></tr>';
-  triads.forEach(t=>{
-    let bg=colorMap[t.color];
-    let cls=t.color==='BLACK'?'blackRow':'';
-    html+=`<tr class="${cls}" style="background:${bg}">
-      <td>${t.triad.join('-')}</td>
-      <td>${t.color}</td>
-    </tr>`;
+  let html = `
+    <table>
+      <tr>
+        <th>Triad</th>
+        <th>Chord Name</th>
+        <th>Category</th>
+        <th>Degree</th>
+        <th>Source</th>
+      </tr>`;
+
+  triads.forEach(obj => {
+    const bg = colorMap[obj.color] || '#fff';
+    const isBlack = obj.color === 'BLACK';
+
+    html += `
+      <tr style="background:${bg};${isBlack ? 'color:white;' : ''}">
+        <td>${obj.triad.join('-')}</td>
+        <td>${obj.name || ''}</td>
+        <td>${obj.color}</td>
+        <td>${obj.degree || ''}</td>
+        <td>${obj.source || ''}</td>
+      </tr>`;
   });
-  html+='</table>';
-  output.innerHTML=html;
+
+  html += '</table>';
+  document.getElementById('output').innerHTML = html;
 }
+
 
 function renderButtons(triads){
   let html='';
@@ -250,3 +266,4 @@ updateAll();
 </script>
 </body>
 </html>
+
