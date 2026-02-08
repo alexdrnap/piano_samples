@@ -59,7 +59,6 @@ let pianoSampler;
 let activeSourceTriad=[];
 
 const colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
-let buttonStates = {}; // store cycling state per color
 
 // ------------------- Triad classification -------------------
 function classify(triad,refBase,scale){
@@ -131,22 +130,20 @@ async function playChord(notes){
     await pianoSampler.loaded;
   }
 
-  const availableNotes = Object.keys(pianoSampleMapFirstCode);
-
-  // Convert flats to sharps
+  // convert flats → sharps
   notes = notes.map(n=>{
     switch(n){case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default: return n;}
   });
 
-  // Sort from low to high
+  // sort low → high
+  const availableNotes = Object.keys(pianoSampleMapFirstCode);
   notes.sort((a,b)=>{
-    let aIdx = availableNotes.findIndex(k=>k.replace('Sharp','')===a.replace('#',''));
-    let bIdx = availableNotes.findIndex(k=>k.replace('Sharp','')===b.replace('#',''));
-    return aIdx-bIdx;
+    const idx = n=> availableNotes.findIndex(k=>k.replace('Sharp','')===n.replace('#',''));
+    return idx(a)-idx(b);
   });
 
   notes.forEach(n=>{
-    let key = availableNotes.find(k=>k.replace('Sharp','')===n.replace('#',''));
+    const key = availableNotes.find(k=>k.replace('Sharp','')===n.replace('#',''));
     if(key) pianoSampler.triggerAttackRelease(key,"1n");
   });
 }
@@ -161,6 +158,8 @@ function playChordFromButton(btn){
 function playSourceTriad(){if(activeSourceTriad.length>0) playChord(activeSourceTriad);}
 
 // ------------------- Generate table & buttons -------------------
+let buttonData = {}; // stores each button's chord list and index
+
 function generateTable(){
   const scaleKey=document.getElementById('scaleSelect').value;
   const scale=scales[scaleKey];
@@ -194,13 +193,13 @@ function generateTable(){
   });
   currentTriads=uniqueC;
 
-  // Precompute button states for cycling
-  buttonStates = {};
+  // Precompute lists per color
+  buttonData = {};
   Object.keys(colorMap).forEach(c=>{
-    buttonStates[c] = {list: currentTriads.filter(t=>t.color===c), index:-1};
+    buttonData[c] = {list: currentTriads.filter(t=>t.color===c), index:-1};
   });
 
-  // Table sorted RED->BLACK
+  // Table sorted RED→BLACK
   const colorOrder = ['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
   uniqueC.sort((a,b)=>colorOrder.indexOf(a.color)-colorOrder.indexOf(b.color));
 
@@ -217,16 +216,16 @@ function generateTable(){
   });
   html+='</table>'; document.getElementById('output').innerHTML=html;
 
-  // Buttons by color
+  // Buttons
   let colors=['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
   let btnHTML='';
   colors.forEach(c=>{
-    let list = buttonStates[c].list;
-    let choice = list.length>0 ? list[0] : {triad:['-','-','-'], name:''};
-    let colorHex=colorMap[c];
-    let textColor = c==='BLACK'?'#FFFFFF':'#000000';
+    const list = buttonData[c].list;
+    const choice = list.length>0 ? list[0] : {triad:['-','-','-'], name:''};
+    const colorHex = colorMap[c];
+    const textColor = c==='BLACK'?'#FFFFFF':'#000000';
     btnHTML+=`<div style="margin-bottom:5px;">
-      <button class='colorBtn' style='background-color:${colorHex};color:${textColor}' onclick='nextChord("${c}", this)'>
+      <button class='colorBtn' data-color="${c}" style='background-color:${colorHex};color:${textColor}' onclick='nextChord(this)'>
         <span class="chordText">${choice.triad.join('-')}</span>
         <span class='chordName'>${choice.name}</span>
       </button>
@@ -239,18 +238,14 @@ function generateTable(){
   document.getElementById('buttons').innerHTML=btnHTML;
 }
 
-// ------------------- Next chord (cycle by current button color) -----------------
-function nextChord(dummyColor, btn){
-  let bgColor = btn.style.backgroundColor;
-  let colorKey = Object.keys(colorMap).find(k => colorMap[k] === bgColor);
-  if(!colorKey) return;
+// ------------------- Next chord per button -------------------
+function nextChord(btn){
+  const color = btn.getAttribute('data-color');
+  const data = buttonData[color];
+  if(!data || data.list.length===0) return;
 
-  let state = buttonStates[colorKey];
-  if(!state || state.list.length === 0) return;
-
-  state.index = (state.index + 1) % state.list.length;
-  let choice = state.list[state.index];
-
+  data.index = (data.index + 1) % data.list.length;
+  const choice = data.list[data.index];
   btn.querySelector('.chordText').textContent = choice.triad.join('-');
   btn.querySelector('.chordName').textContent = choice.name;
 
@@ -259,16 +254,20 @@ function nextChord(dummyColor, btn){
 
 // ------------------- Update button color -----------------
 function updateButtonColorFromSelect(select){
-  let btn = select.previousElementSibling;
-  let selectedColor = Object.keys(colorMap).find(k=>colorMap[k]===select.value);
-  let list = buttonStates[selectedColor].list;
+  const btn = select.previousElementSibling;
+  const color = Object.keys(colorMap).find(k=>colorMap[k]===select.value);
+  btn.setAttribute('data-color', color);
+  btn.style.backgroundColor = select.value;
+  btn.style.color = color==='BLACK'?'#FFFFFF':'#000000';
+
+  // Update button text with first chord of new color
+  const list = buttonData[color].list;
   if(list.length>0){
-    let choice = list[0];
+    const choice = list[0];
     btn.querySelector('.chordText').textContent = choice.triad.join('-');
     btn.querySelector('.chordName').textContent = choice.name;
+    buttonData[color].index = 0;
   }
-  btn.style.backgroundColor = select.value;
-  btn.style.color = selectedColor==='BLACK'?'#FFFFFF':'#000000';
 }
 
 generateTable();
