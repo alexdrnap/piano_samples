@@ -15,6 +15,7 @@ button .chordName { font-size: 0.7em; color: #333; }
 #sourceTriadLabel { font-size: 0.65em; margin-top: 4px; opacity: 0.8; }
 .blackRow td { color: white; }
 .blackBtn { color: white; }
+.blackBtn .chordName { color: white; }
 .triadControl { display: inline-flex; flex-direction: column; align-items: center; margin:3px; }
 .triadControl .navButtons { margin-top: 3px; display:flex; justify-content:center; width:100%; }
 .triadControl .navButtons button { margin:0 2px; }
@@ -179,7 +180,7 @@ async function changeSound(sound){
         "A4":"A4.wav","A#4":"ASharp4.wav","A5":"A5.wav","A#5":"ASharp5.wav",
         "B4":"B4.wav","B5":"B5.wav","C5":"C5.wav","C6":"C6.wav","C#5":"CSharp5.wav",
         "D5":"D5.wav","D#5":"DSharp5.wav","E5":"E5.wav","F5":"F5.wav",
-        "F#5":"FSharp5.wav","G5":"G5.wav","G#4":"GSharp4.wav","G#5":"GSharp5.wav"
+        "F#5":"F#5.wav","G5":"G5.wav","G#4":"GSharp4.wav","G#5":"GSharp5.wav"
       },
       baseUrl:"https://raw.githubusercontent.com/alexdrnap/piano_samples/main/"
     }).toDestination();
@@ -189,10 +190,9 @@ async function changeSound(sound){
 
 // --- Module 4: Playback with deterministic sample selection ---
 function getTriadSamples(triad){
-  // pick per position: 1st note -> first sample, 2nd -> second sample, 3rd -> second sample
   return triad.map((n,i)=>{
     const list = sampleMap[n];
-    if(!list || list.length===0) return n; // fallback
+    if(!list || list.length===0) return n;
     if(i===0) return list[0];
     return list[1] || list[0];
   });
@@ -229,7 +229,7 @@ function scrollTriad(container, direction){
   container.dataset.index = idx;
   const triadObj = list[idx];
   const btn = container.querySelector('.colorBtn');
-  btn.innerHTML = triadObj.triad.join('-') + `<span class="chordName">${triadObj.name}</span>`;
+  btn.innerHTML = triadObj.triad.join('-') + `<span class="chordName" ${color==='BLACK'?'style="color:white;"':''}>${triadObj.name}</span>`;
   btn.onclick = () => playChord(triadObj.triad);
 }
 
@@ -308,8 +308,9 @@ function generateTable(){
     const firstTriad = list[0];
     btnHTML+=`
     <div class="triadControl" data-color="${c}" data-index="0">
-      <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" style="background:${colorMap[c]}" onclick="playChord([${firstTriad.triad.map(n=>`'${n}'`)}])">
-        ${firstTriad.triad.join('-')}<span class="chordName">${firstTriad.name}</span>
+      <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" style="background:${colorMap[c]}" 
+        onclick="playChord([${firstTriad.triad.map(n=>`'${n}'`)}])">
+        ${firstTriad.triad.join('-')}<span class="chordName" ${c==='BLACK'?'style="color:white;"':''}>${firstTriad.name}</span>
       </button>
       <div class="navButtons">
         <button onclick="scrollTriad(this.parentNode.parentNode,-1)">◀</button>
