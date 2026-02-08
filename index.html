@@ -46,22 +46,20 @@ const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function noteIndex(note){return noteOrder.indexOf(note);}
 function transpose(note,semitones){return noteOrder[(noteIndex(note)+12+semitones)%12];}
 
-// ------------------- Scales & triads with octave fixes -------------------
 const scales={
-  major:['C5','D5','E5','F5','G5','A5','B5'],
-  naturalMinor:['C5','D5','D#5','F5','G5','G#5','A#5'],
-  harmonicMinor:['C5','D5','D#5','F5','G5','G#5','B5'],
-  melodicMinor:['C5','D5','D#5','F5','G5','A5','B5']
+  major:['C','D','E','F','G','A','B'],
+  naturalMinor:['C','D','Eb','F','G','Ab','Bb'],
+  harmonicMinor:['C','D','Eb','F','G','Ab','B'],
+  melodicMinor:['C','D','Eb','F','G','A','B']
 };
-
 const baseTriads={
-  major:['C5','E5','G5'],
-  naturalMinor:['C5','D#5','G5'],
-  harmonicMinor:['C5','D#5','G5'],
-  melodicMinor:['C5','D#5','G5']
+  major:['C','E','G'],
+  naturalMinor:['C','Eb','G'],
+  harmonicMinor:['C','Eb','G'],
+  melodicMinor:['C','Eb','G']
 };
-const dimTriad=['C5','D#5','F#5'];
-const augTriad=['C5','E5','G#5'];
+const dimTriad=['C','Eb','Gb'];
+const augTriad=['C','E','G#'];
 
 let currentTriads=[];
 let currentSound='piano';
@@ -90,14 +88,14 @@ function classify(triad,refBase,scale){
 
 function normalizeEnharmonics(triad){
   return triad.map(n=>{
-    switch(n){case 'Db5': return 'C#5'; case 'Eb5': return 'D#5'; case 'Gb5': return 'F#5'; case 'Ab5': return 'G#5'; case 'Bb5': return 'A#5'; default: return n;}
+    switch(n){case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default: return n;}
   });
 }
 
 function nameTriad(triad){
   if(new Set(triad).size<3) return '';
   triad=normalizeEnharmonics(triad);
-  const semitone=note=>noteOrder.indexOf(note.replace(/[0-9]/g,'')); // remove octave
+  const semitone=note=>noteOrder.indexOf(note);
   const mod12=n=> (n+12)%12;
   let tri=triad.map(n=>semitone(n));
 
@@ -121,7 +119,7 @@ function nameTriad(triad){
     let ints=intervalsFrom(rot);
     for(let t of triads){
       if(JSON.stringify(ints)===JSON.stringify(t.i)){
-        return triad[s].replace(/[0-9]/g,'')+' '+t.l; // show note without octave
+        return noteOrder[rot[0]]+' '+t.l;
       }
     }
   }
@@ -132,31 +130,28 @@ function nameTriad(triad){
 function generateTriads(base){
   const semis=[-2,-1,0,1,2];
   let results=new Set();
-  for(let i=0;i<3;i++) for(let s of semis){ let tri=[...base]; tri[i]=transpose(tri[i].replace(/[0-9]/g,''),s)+tri[i].match(/[0-9]/)[0]; results.add(tri.join(',')); }
+  for(let i=0;i<3;i++) for(let s of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s); results.add(tri.join(',')); }
   for(let i=0;i<2;i++) for(let j=i+1;j<3;j++) for(let s1 of semis) for(let s2 of semis){
-    let tri=[...base]; 
-    tri[i]=transpose(tri[i].replace(/[0-9]/g,''),s1)+tri[i].match(/[0-9]/)[0]; 
-    tri[j]=transpose(tri[j].replace(/[0-9]/g,''),s2)+tri[j].match(/[0-9]/)[0]; 
-    results.add(tri.join(','));
-  }
+    let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(',')); }
   for(let s1 of semis) for(let s2 of semis) for(let s3 of semis){
-    results.add([transpose(base[0].replace(/[0-9]/g,''),s1)+base[0].match(/[0-9]/)[0],
-                 transpose(base[1].replace(/[0-9]/g,''),s2)+base[1].match(/[0-9]/)[0],
-                 transpose(base[2].replace(/[0-9]/g,''),s3)+base[2].match(/[0-9]/)[0]].join(','));
+    results.add([transpose(base[0],s1),transpose(base[1],s2),transpose(base[2],s3)].join(','));
   }
   return Array.from(results).map(r=>r.split(','));
 }
 
-// ------------------- Real piano samples mapping from GitHub -------------------
+// ------------------- Piano samples -------------------
 const githubBase = "https://raw.githubusercontent.com/alexdrnap/piano_samples/main/";
 const pianoSampleMap = {
-  "C5":"C5.mp3","C#5":"C#5.mp3","D5":"D5.mp3","D#5":"D#5.mp3","E5":"E5.mp3","F5":"F5.mp3","F#5":"F#5.mp3",
-  "G5":"G5.mp3","G#5":"G#5.mp3","A5":"A5.mp3","A#5":"A#5.mp3","B5":"B5.mp3",
-  "C6":"C6.mp3"
+  "C4":"C4.wav","C#4":"C#4.wav","D4":"D4.wav","D#4":"D#4.wav","E4":"E4.wav","F4":"F4.wav","F#4":"F#4.wav",
+  "G4":"G4.wav","G#4":"G#4.wav","A4":"A4.wav","A#4":"A#4.wav","B4":"B4.wav",
+  "C5":"C5.wav","C#5":"C#5.wav","D5":"D5.wav","D#5":"D#5.wav","E5":"E5.wav","F5":"F5.wav","F#5":"F#5.wav",
+  "G5":"G5.wav","G#5":"G#5.wav","A5":"A5.wav","A#5":"A#5.wav","B5":"B5.wav",
+  "C6":"C6.wav"
 };
 
 async function changeSound(sound){
   currentSound = sound;
+  await Tone.start(); // ensure AudioContext started
   if(sound === 'piano' && !pianoSampler){
     pianoSampler = new Tone.Sampler({
       urls: pianoSampleMap,
@@ -166,13 +161,13 @@ async function changeSound(sound){
   }
 }
 
-// ------------------- Play chord simultaneously -------------------
+// ------------------- Play chord -------------------
 async function playChord(notes){
-  await Tone.start(); // ensures user gesture
+  await Tone.start(); // ensure user gesture
   if(currentSound==='piano' && pianoSampler){
     notes.forEach(n=>{
-      let key = n.includes('5') ? n : n+'5';
-      key = normalizeEnharmonics([key])[0];
+      let key = normalizeEnharmonics([n])[0];
+      if(!key.match(/\d/)) key += '5'; // default octave if missing
       if(pianoSampleMap[key]){
         pianoSampler.triggerAttackRelease(key,"1n");
       } else {
@@ -182,20 +177,21 @@ async function playChord(notes){
   } else {
     if(currentSynth){ currentSynth.dispose(); currentSynth=null; }
     currentSynth = new Tone.PolySynth(Tone.Synth).toDestination();
-    currentSynth.triggerAttackRelease(notes.map(n=>n.includes('5')?n:n+'5'),"1n");
+    let validNotes = notes.map(n=>n.match(/\d/) ? n : n+'5');
+    currentSynth.triggerAttackRelease(validNotes,"1n");
   }
 }
 
 function playChordFromButton(btn){
   const chordText = btn.querySelector('.chordText').textContent.trim();
   if(!chordText) return;
-  const notes = chordText.split('-').map(n=>n+'5');
+  const notes = chordText.split('-');
   playChord(notes);
 }
 
 function playSourceTriad(){if(activeSourceTriad.length>0) playChord(activeSourceTriad);}
 
-// ------------------- Generate table and buttons -------------------
+// ------------------- Generate table -------------------
 function generateTable(){
   const scaleKey=document.getElementById('scaleSelect').value;
   const scale=scales[scaleKey];
@@ -231,7 +227,7 @@ function generateTable(){
   // Deduplicate
   let uniqueC=[]; let seen=new Set();
   cTriads.forEach(obj=>{
-    let canonical=obj.triad.slice().sort((a,b)=>noteOrder.indexOf(a.replace(/[0-9]/g,''))-noteOrder.indexOf(b.replace(/[0-9]/g,''))).join(',');
+    let canonical=obj.triad.slice().sort((a,b)=>noteOrder.indexOf(a)-noteOrder.indexOf(b)).join(',');
     if(!seen.has(canonical)){ seen.add(canonical); uniqueC.push(obj); }
   });
   currentTriads=uniqueC;
@@ -284,7 +280,6 @@ function updateButtonColorFromSelect(select){
   if(chordObj) chordObj.color=select.value;
 }
 
-// Generate table initially
 generateTable();
 </script>
 </body>
