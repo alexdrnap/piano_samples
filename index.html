@@ -10,13 +10,14 @@ table { border-collapse: collapse; margin-top: 10px; width: 100%; }
 td, th { border: 1px solid #888; padding: 5px 10px; text-align: center; }
 button.colorBtn { margin: 3px; padding: 10px; min-width: 100px; display: flex; flex-direction: column; align-items: center; }
 button .chordName { font-size: 0.7em; color: #333; }
-.colorSelect { margin-left:5px; vertical-align:middle; }
+.colorSelect { margin-top: 3px; vertical-align:middle; width:100%; }
 #playSource { margin: 10px; padding: 15px; font-size: 1.2em; display: flex; flex-direction: column; align-items: center; }
 #sourceTriadLabel { font-size: 0.65em; margin-top: 4px; opacity: 0.8; }
 .blackRow td { color: white; }
 .blackBtn { color: white; }
-.triadControl { display: inline-flex; align-items: center; margin:3px; }
-.triadControl button { margin: 0 2px; }
+.triadControl { display: inline-flex; flex-direction: column; align-items: center; margin:3px; }
+.triadControl .navButtons { margin-top: 3px; display:flex; justify-content:center; width:100%; }
+.triadControl .navButtons button { margin:0 2px; }
 </style>
 </head>
 <body>
@@ -183,13 +184,12 @@ async function playChord(notes){
   await Tone.start();
   if(currentSynth){currentSynth.dispose(); currentSynth=null;}
 
-  // Determine playback order
   let order = [0,1,2];
   if(notes.length===3){
     const diff12=(noteIndex(notes[1])-noteIndex(notes[0])+12)%12;
     const diff23=(noteIndex(notes[2])-noteIndex(notes[1])+12)%12;
-    if(diff12===11||diff12===10) order=[1,0,2]; // second note lower by 1-2 semitones
-    else if(diff23===1||diff23===2) order=[0,2,1]; // second note higher by 1-2 semitones
+    if(diff12===11||diff12===10) order=[1,0,2];
+    else if(diff23===1||diff23===2) order=[0,2,1];
   }
   const chordNotes = order.map(i=>notes[i]+'5');
 
@@ -292,14 +292,16 @@ function generateTable(){
   document.getElementById('output').innerHTML=html;
 
   // build buttons
-  let colors=['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
+  let colors=colorOrder;
   let btnHTML='';
   colors.forEach(c=>{
     btnHTML+=`
     <div class="triadControl">
-      <button onclick="changeTriad(this.parentNode.querySelector('.colorBtn').dataset.color,-1)">◀</button>
-      <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" data-color="${c}" style="background:${colorMap[c]}"></button>
-      <button onclick="changeTriad(this.parentNode.querySelector('.colorBtn').dataset.color,1)">▶</button>
+      <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" data-color="${c}"></button>
+      <div class="navButtons">
+        <button onclick="changeTriad(this.parentNode.parentNode.querySelector('.colorBtn').dataset.color,-1)">◀</button>
+        <button onclick="changeTriad(this.parentNode.parentNode.querySelector('.colorBtn').dataset.color,1)">▶</button>
+      </div>
       <select class="colorSelect" onchange="updateButtonColorFromSelect(this)">
         ${Object.entries(colorMap).map(([k,v])=>`<option value="${v}" ${v===colorMap[c]?'selected':''}>${k}</option>`).join('')}
       </select>
@@ -318,12 +320,14 @@ function generateTable(){
 
 // --- Module 6: Color change dropdown ---
 function updateButtonColorFromSelect(select){
-  const btn = select.previousElementSibling;
+  const btn = select.parentNode.querySelector('.colorBtn'); 
   const newColorHex = select.value;
   const newColor = Object.keys(colorMap).find(k=>colorMap[k]===newColorHex);
   if(!newColor) return;
+
   btn.style.backgroundColor = newColorHex;
   btn.dataset.color = newColor;
+
   if(colorIndices[newColor]===undefined) colorIndices[newColor]=0;
   updateTriadButton(newColor);
 }
