@@ -55,6 +55,9 @@ const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function noteIndex(note){return noteOrder.indexOf(note);}
 function transpose(note,semitones){return noteOrder[(noteIndex(note)+12+semitones)%12];}
 
+// mapping for display only (flats)
+const displayMap = {D#:'Eb',G#:'Ab',A#:'Bb',C#:'Db',F#:'Gb'};
+
 const scales={
   major:['C','D','E','F','G','A','B'],
   naturalMinor:['C','D','Eb','F','G','Ab','Bb'],
@@ -108,6 +111,10 @@ function normalizeEnharmonics(triad){
   });
 }
 
+function displayNote(note){
+  return displayMap[note] || note;
+}
+
 function nameTriad(triad){
   if(new Set(triad).size<3) return '';
   triad=normalizeEnharmonics(triad);
@@ -135,7 +142,7 @@ function nameTriad(triad){
     let ints=intervalsFrom(rot);
     for(let t of triads){
       if(JSON.stringify(ints)===JSON.stringify(t.i)){
-        return noteOrder[rot[0]]+' '+t.l;
+        return displayNote(noteOrder[rot[0]])+' '+t.l;
       }
     }
   }
@@ -144,10 +151,10 @@ function nameTriad(triad){
     let rot=[tri[s],tri[(s+1)%3],tri[(s+2)%3]];
     let i1=mod12(rot[1]-rot[0]);
     let i2=mod12(rot[2]-rot[1]);
-    if(i1===2 && i2===3) return noteOrder[rot[0]]+'1/2dim_4m';
-    if(i1===3 && i2===2) return noteOrder[rot[2]]+'7_4M';
-    if(i1===4 && i2===2) return noteOrder[rot[2]]+'1/2dim_3TM';
-    if(i1===2 && i2===4) return noteOrder[rot[1]]+'7_3Tm';
+    if(i1===2 && i2===3) return displayNote(noteOrder[rot[0]])+'1/2dim_4m';
+    if(i1===3 && i2===2) return displayNote(noteOrder[rot[2]])+'7_4M';
+    if(i1===4 && i2===2) return displayNote(noteOrder[rot[2]])+'1/2dim_3TM';
+    if(i1===2 && i2===4) return displayNote(noteOrder[rot[1]])+'7_3Tm';
   }
 
   return '';
@@ -183,14 +190,17 @@ async function playChord(notes){
   await Tone.start();
   if(currentSynth){currentSynth.dispose(); currentSynth=null;}
 
+  const playbackNotes = normalizeEnharmonics(notes);
+
   let order = [0,1,2];
-  if(notes.length===3){
-    const diff12=(noteIndex(notes[1])-noteIndex(notes[0])+12)%12;
-    const diff23=(noteIndex(notes[2])-noteIndex(notes[1])+12)%12;
+  if(playbackNotes.length===3){
+    const diff12=(noteIndex(playbackNotes[1])-noteIndex(playbackNotes[0])+12)%12;
+    const diff23=(noteIndex(playbackNotes[2])-noteIndex(playbackNotes[1])+12)%12;
     if(diff12===11||diff12===10) order=[1,0,2];
     else if(diff23===1||diff23===2) order=[0,2,1];
   }
-  const chordNotes = order.map(i=>notes[i]+'5');
+
+  const chordNotes = order.map(i=>playbackNotes[i]+'5');
 
   if(currentSound==='triangle'){
     currentSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:0.1,decay:0.1,sustain:0.7,release:0.3}}).toDestination();
@@ -221,7 +231,7 @@ function scrollTriad(container, direction){
   container.dataset.index = idx;
   const triadObj = list[idx];
   const btn = container.querySelector('.colorBtn');
-  btn.innerHTML = triadObj.triad.join('-') + `<span class="chordName">${triadObj.name}</span>`;
+  btn.innerHTML = triadObj.triad.map(displayNote).join('-') + `<span class="chordName">${triadObj.name}</span>`;
   btn.onclick = () => playChord(triadObj.triad);
 }
 
@@ -271,7 +281,6 @@ function generateTable(){
     });
   }
 
-  // remove duplicates
   let uniqueC=[]; let seen=new Set();
   cTriads.forEach(obj=>{
     let canonical=obj.triad.slice().sort((a,b)=>noteOrder.indexOf(a)-noteOrder.indexOf(b)).join(',');
@@ -279,14 +288,12 @@ function generateTable(){
   });
   currentTriads = uniqueC;
 
-  // sort by color
   currentTriads.sort((a,b)=>colorOrder.indexOf(a.color)-colorOrder.indexOf(b.color));
 
-  // build table
   let html='<table><tr><th>Triad</th><th>Chord Name</th><th>Category</th><th>Degree</th><th>Source</th></tr>';
   currentTriads.forEach(o=>{
-    html+=`<tr class="${o.color==='BLACK'?'blackRow':''}" style="background-color:${colorMap[o.color]};">
-      <td>${o.triad.join('-')}</td>
+    html+=`<tr class="${o.color==='BLACK'?'blackRow':''}" style="background-color:${colorMap[o.color]}">
+      <td>${o.triad.map(displayNote).join('-')}</td>
       <td>${o.name}</td>
       <td>${o.color}</td>
       <td>${o.degree}</td>
@@ -296,7 +303,6 @@ function generateTable(){
   html+='</table>';
   document.getElementById('output').innerHTML=html;
 
-  // build buttons
   let colors=colorOrder;
   let btnHTML='';
   colors.forEach(c=>{
@@ -306,7 +312,7 @@ function generateTable(){
     btnHTML+=`
     <div class="triadControl" data-color="${c}" data-index="0">
       <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" style="background:${colorMap[c]}" onclick="playChord([${firstTriad.triad.map(n=>`'${n}'`)}])">
-        ${firstTriad.triad.join('-')}<span class="chordName">${firstTriad.name}</span>
+        ${firstTriad.triad.map(displayNote).join('-')}<span class="chordName">${firstTriad.name}</span>
       </button>
       <div class="navButtons">
         <button onclick="scrollTriad(this.parentNode.parentNode,-1)">◀</button>
