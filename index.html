@@ -82,10 +82,20 @@ let currentSynth=null;
 const colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
 const colorOrder = ['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
 
-const sampleMap = {
+const sampleChoiceMap = {
   "A":["A4","A5"], "A#":["ASharp4","ASharp5"], "B":["B4","B5"],
   "C":["C5","C6"], "C#":["CSharp5"], "D":["D5"], "D#":["DSharp5"],
-  "E":["E5"], "F":["F5"], "F#":["F#5"], "G":["G5"], "G#":["GSharp4","GSharp5"]
+  "E":["E5"], "F":["F5"], "F#":["FSharp5"], "G":["G5"], "G#":["GSharp4","GSharp5"]
+};
+
+const pianoSamplerUrls = {
+  "A4":"A4.wav","A5":"A5.wav",
+  "ASharp4":"ASharp4.wav","ASharp5":"ASharp5.wav",
+  "B4":"B4.wav","B5":"B5.wav",
+  "C5":"C5.wav","C6":"C6.wav",
+  "CSharp5":"CSharp5.wav","D5":"D5.wav","DSharp5":"DSharp5.wav",
+  "E5":"E5.wav","F5":"F5.wav","FSharp5":"FSharp5.wav",
+  "G5":"G5.wav","GSharp4":"GSharp4.wav","GSharp5":"GSharp5.wav"
 };
 
 // --- Module 2: Classification / naming ---
@@ -177,8 +187,8 @@ async function changeSound(sound){
   currentSound = sound;
   if(sound==='piano' && !pianoSampler){
     pianoSampler = new Tone.Sampler({
-      urls: sampleMap,
-      baseUrl:"https://raw.githubusercontent.com/alexdrnap/piano_samples/main/"
+      urls: pianoSamplerUrls,
+      baseUrl: "https://raw.githubusercontent.com/alexdrnap/piano_samples/main/"
     }).toDestination();
     await pianoSampler.loaded;
   }
@@ -186,23 +196,24 @@ async function changeSound(sound){
 
 // --- Module 4: Playback ---
 function getTriadSamples(triad){
-  let notes = triad.map((n,i)=>{
-    const list = sampleMap[n];
-    if(!list || list.length===0) return n;
-    if(i===0) return list[0];
-    return list[1] || list[0];
+  let notes = triad.map((note, i) => {
+    const options = sampleChoiceMap[note];
+    if(!options) return null;
+    if(i===0) return options[0];
+    return options[1] || options[0];
   });
 
-  // --- Reintroduce 213 / 132 rules ---
-  const semitone = n => noteIndex(n.replace('#','♯'));
-  const first = semitone(triad[0]);
-  const second = semitone(triad[1]);
-  const third = semitone(triad[2]);
+  const a = noteIndex(triad[0]);
+  const b = noteIndex(triad[1]);
+  const c = noteIndex(triad[2]);
 
-  if(second - first === -1 || second - first === -2) notes = [notes[1],notes[0],notes[2]]; // 213
-  else if(second - third === 1 || second - third === 2) notes = [notes[0],notes[2],notes[1]]; // 132
+  if(b - a === -1 || b - a === -2){
+    notes = [notes[1], notes[0], notes[2]]; // 213
+  } else if(b - c === 1 || b - c === 2){
+    notes = [notes[0], notes[2], notes[1]]; // 132
+  }
 
-  return notes;
+  return notes.filter(Boolean);
 }
 
 async function playChord(notes){
