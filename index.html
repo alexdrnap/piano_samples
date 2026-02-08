@@ -34,7 +34,7 @@ button#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-co
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
-// ------------------- Note & scale utils -------------------
+// ------------------- Note utils -------------------
 const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function noteIndex(note){return noteOrder.indexOf(note);}
 function transpose(note,semitones){return noteOrder[(noteIndex(note)+12+semitones)%12];}
@@ -45,12 +45,14 @@ const scales={
   harmonicMinor:['C','D','Eb','F','G','Ab','B'],
   melodicMinor:['C','D','Eb','F','G','A','B']
 };
+
 const baseTriads={
   major:['C','E','G'],
   naturalMinor:['C','Eb','G'],
   harmonicMinor:['C','Eb','G'],
   melodicMinor:['C','Eb','G']
 };
+
 const dimTriad=['C','Eb','Gb'];
 const augTriad=['C','E','G#'];
 
@@ -59,6 +61,36 @@ let pianoSampler=null;
 let activeSourceTriad=[];
 
 const colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
+
+// ------------------- Map notes to Sharp filenames -------------------
+const pianoSampleMap = {
+  "G#4":"GSharp4.wav",
+  "A4":"A4.wav",
+  "A#4":"ASharp4.wav",
+  "B4":"B4.wav",
+  "C5":"C5.wav",
+  "C#5":"CSharp5.wav",
+  "D5":"D5.wav",
+  "D#5":"DSharp5.wav",
+  "E5":"E5.wav",
+  "F5":"F5.wav",
+  "F#5":"FSharp5.wav",
+  "G5":"G5.wav",
+  "G#5":"GSharp5.wav",
+  "A5":"A5.wav",
+  "A#5":"ASharp5.wav",
+  "B5":"B5.wav",
+  "C6":"C6.wav"
+};
+
+const githubBase = "https://raw.githubusercontent.com/alexdrnap/piano_samples/main/";
+
+// ------------------- Normalize enharmonics -------------------
+function normalizeEnharmonics(triad){
+  return triad.map(n=>{
+    switch(n){case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default: return n;}
+  });
+}
 
 // ------------------- Triad classification -------------------
 function classify(triad,refBase,scale){
@@ -77,12 +109,20 @@ function classify(triad,refBase,scale){
   return['UNKNOWN','-'];
 }
 
-function normalizeEnharmonics(triad){
-  return triad.map(n=>{
-    switch(n){case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default: return n;}
-  });
+// ------------------- Triad generation -------------------
+function generateTriads(base){
+  const semis=[-2,-1,0,1,2];
+  let results=new Set();
+  for(let i=0;i<3;i++) for(let s of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s); results.add(tri.join(',')); }
+  for(let i=0;i<2;i++) for(let j=i+1;j<3;j++) for(let s1 of semis) for(let s2 of semis){
+    let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(',')); }
+  for(let s1 of semis) for(let s2 of semis) for(let s3 of semis){
+    results.add([transpose(base[0],s1),transpose(base[1],s2),transpose(base[2],s3)].join(','));
+  }
+  return Array.from(results).map(r=>r.split(','));
 }
 
+// ------------------- Name triad -------------------
 function nameTriad(triad){
   if(new Set(triad).size<3) return '';
   triad=normalizeEnharmonics(triad);
@@ -117,63 +157,43 @@ function nameTriad(triad){
   return '';
 }
 
-// ------------------- Triad generation -------------------
-function generateTriads(base){
-  const semis=[-2,-1,0,1,2];
-  let results=new Set();
-  for(let i=0;i<3;i++) for(let s of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s); results.add(tri.join(',')); }
-  for(let i=0;i<2;i++) for(let j=i+1;j<3;j++) for(let s1 of semis) for(let s2 of semis){
-    let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(',')); }
-  for(let s1 of semis) for(let s2 of semis) for(let s3 of semis){
-    results.add([transpose(base[0],s1),transpose(base[1],s2),transpose(base[2],s3)].join(','));
-  }
-  return Array.from(results).map(r=>r.split(','));
-}
-
-// ------------------- Real piano samples mapping from GitHub -------------------
-const githubBase = "https://raw.githubusercontent.com/alexdrnap/piano_samples/main/";
-const pianoSampleMap = {
-  "G#4":"G#4.wav","A4":"A4.wav","A#4":"A#4.wav","B4":"B4.wav",
-  "C5":"C5.wav","C#5":"C#5.wav","D5":"D5.wav","D#5":"D#5.wav",
-  "E5":"E5.wav","F5":"F5.wav","F#5":"F#5.wav","G5":"G5.wav","G#5":"G#5.wav",
-  "A5":"A5.wav","A#5":"A#5.wav","B5":"B5.wav","C6":"C6.wav"
-};
-
-// ------------------- Initialize sampler -------------------
-async function loadSampler(){
-  if(pianoSampler) return;
-  pianoSampler = new Tone.Sampler({
-    urls: pianoSampleMap,
-    baseUrl: githubBase,
-    onload: ()=>console.log("Piano sampler loaded"),
-    onerror: (e)=>console.error("Sampler error:", e)
-  }).toDestination();
-}
-
-// ------------------- Play chord sequentially -------------------
-async function playChord(notes){
-  await Tone.start();
-  await loadSampler();
-
+// ------------------- Load Piano Sampler -------------------
+async function changeSound(){
   if(!pianoSampler){
-    console.log("Sampler not loaded yet");
-    return;
+    pianoSampler = new Tone.Sampler({
+      urls: pianoSampleMap,
+      baseUrl: githubBase,
+      onload:()=>console.log("Piano sampler loaded"),
+      onerror:(err,note)=>console.warn("Sampler error:", err, note)
+    }).toDestination();
   }
+  await Tone.start();
+}
 
-  const normalize = n => n.replace('Db','C#').replace('Eb','D#').replace('Gb','F#').replace('Ab','G#').replace('Bb','A#');
+// ------------------- Play chord in order -------------------
+async function playChord(notes){
+  if(!pianoSampler) { console.log("Sampler not loaded"); return; }
+  await Tone.start();
+  // Filter notes to available range
+  const minNote='G#4', maxNote='C6';
+  const noteOrderAll=['G#4','A4','ASharp4','B4','C5','CSharp5','D5','DSharp5','E5','F5','FSharp5','G5','GSharp5','A5','ASharp5','B5','C6'];
+  let notesToPlay = notes.map(n=>{
+    n=normalizeEnharmonics([n])[0];
+    let octave=n.slice(-1);
+    if(!noteOrderAll.includes(n+octave)) return null;
+    return n+octave;
+  }).filter(n=>n!==null);
 
-  let mappedNotes = notes.map(n=>normalize(n));
-
-  for(let n of mappedNotes){
-    if(!pianoSampler.get(n)){
-      console.warn("No sample for note:", n);
-      continue;
-    }
-    pianoSampler.triggerAttackRelease(n,"1n");
-    await new Promise(r=>setTimeout(r,300)); // 300ms between notes
+  for(let n of notesToPlay){
+    const key = Object.keys(pianoSampleMap).find(k=>k===n);
+    if(key){
+      pianoSampler.triggerAttackRelease(key,"1n");
+      await new Promise(r=>setTimeout(r,400)); // simple sequential delay
+    } else console.warn("No sample for note:", n);
   }
 }
 
+// ------------------- Button actions -------------------
 function playChordFromButton(btn){
   const chordText = btn.querySelector('.chordText').textContent.trim();
   if(!chordText) return;
@@ -261,6 +281,7 @@ function pickChord(color,btn){
   }
 }
 
+changeSound(); // preload sampler
 generateTable();
 </script>
 </body>
