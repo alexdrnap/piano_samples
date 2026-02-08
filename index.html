@@ -8,10 +8,12 @@
 body { font-family: sans-serif; padding: 10px; }
 table { border-collapse: collapse; margin-top: 10px; width: 100%; }
 td, th { border: 1px solid #888; padding: 5px 10px; text-align: center; }
-button.colorBtn { margin: 3px; padding: 10px; min-width: 100px; display: flex; flex-direction: column; align-items: center; }
-button .chordName { font-size: 0.7em; color: #333; }
-.colorSelect { margin-left:5px; vertical-align:middle; }
-button#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-color:#66CC66; color:#000; }
+button.colorBtn { padding: 10px; min-width: 100px; display: flex; flex-direction: column; align-items: center; font-weight:bold; }
+button.smallBtn { margin-top: 3px; padding: 5px 10px; font-size: 0.8em; }
+.controls { display: flex; flex-direction: column; margin-top: 5px; }
+.buttonRow { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.colorSelect { margin-top:3px; }
+#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-color:#66CC66; color:#000; }
 </style>
 </head>
 <body>
@@ -30,7 +32,7 @@ button#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-co
 <button id="playSource" onclick="playSourceTriad()">Play Source Triad</button>
 
 <br><br>
-<div id="buttons"></div>
+<div id="buttons" class="buttonRow"></div>
 <div id="output"></div>
 
 <script src="https://unpkg.com/tone@latest"></script>
@@ -132,11 +134,9 @@ function reorderChord(notes){
   let idx1 = noteToIndex(notes[0]);
   let idx2 = noteToIndex(notes[1]);
   let idx3 = noteToIndex(notes[2]);
-  // rule 1: second note lower by 1-2 semitones than first
   if( (idx1 - idx2 === 1) || (idx1 - idx2 === 2) ) return [notes[1], notes[0], notes[2]];
-  // rule 2: second note higher than third by 1-2 semitones
   if( (idx2 - idx3 === 1) || (idx2 - idx3 === 2) ) return [notes[0], notes[2], notes[1]];
-  return notes; // default
+  return notes;
 }
 
 async function playChord(notes){
@@ -145,13 +145,11 @@ async function playChord(notes){
     pianoSampler = new Tone.Sampler({urls:pianoSampleMapFirstCode, baseUrl: githubBase}).toDestination();
     await pianoSampler.loaded;
   }
-  // Normalize flats to sharps
   notes = normalizeEnharmonics(notes);
-  // Apply custom play order
   notes = reorderChord(notes);
   const availableNotes = Object.keys(pianoSampleMapFirstCode);
   const filteredNotes = notes.map(note => {
-    for (let octave of ["4", "5", "6"]) {
+    for (let octave of ["4","5","6"]) {
       let key = note + octave;
       let sharpKey = note.replace('#','Sharp') + octave;
       if(availableNotes.includes(key)) return key;
@@ -178,7 +176,6 @@ function generateTable() {
     const scale = scales[scaleKey];
     activeSourceTriad = baseTriads[scaleKey];
 
-    // Update source triad display
     document.getElementById('sourceTriadDisplay').textContent = 
         "Source Triad: " + normalizeEnharmonics(activeSourceTriad).join('-');
 
@@ -227,15 +224,18 @@ function generateTable() {
         if (filtered.length === 0) return;
         let choice = filtered[0];
         let textColor = (c === 'BLACK') ? '#fff' : '#000';
-        btnHTML += `<div style="margin-bottom:5px;">
-            <button class='colorBtn' style='background-color:${colorMap[c]}; color:${textColor}' data-color='${c}' onclick='nextChord(this)'>
+        btnHTML += `<div>
+            <button class='colorBtn' style='background-color:${colorMap[c]}; color:${textColor}' data-color='${c}'>
                 <span class="chordText">${choice.triad.join('-')}</span>
                 <span class='chordName'>${choice.name}</span>
             </button>
-            <select class='colorSelect' onchange='updateButtonColorFromSelect(this)'>
+            <div class="controls">
+              <button class="smallBtn" onclick="prevChord(this)">«</button>
+              <button class="smallBtn" onclick="playChordFromButton(this.previousElementSibling.previousElementSibling)">Play</button>
+              <select class='colorSelect' onchange='updateButtonColorFromSelect(this)'>
                 ${Object.entries(colorMap).map(([k,v])=>`<option value='${k}' ${k===c?'selected':''}>${k}</option>`).join('')}
-            </select>
-            <button onclick='playChordFromButton(this.previousElementSibling.previousElementSibling)'>Play</button>
+              </select>
+            </div>
         </div>`;
     });
     document.getElementById('buttons').innerHTML = btnHTML;
@@ -257,8 +257,19 @@ function nextChord(btn) {
     playChord(choice.triad);
 }
 
+function prevChord(btn){
+    let colorBtn = btn.parentElement.previousElementSibling;
+    let state = colorBtn.buttonState;
+    if (!state || state.list.length === 0) return;
+    state.index = (state.index - 1 + state.list.length) % state.list.length;
+    let choice = state.list[state.index];
+    colorBtn.querySelector('.chordText').textContent = choice.triad.join('-');
+    colorBtn.querySelector('.chordName').textContent = choice.name;
+    playChord(choice.triad);
+}
+
 function updateButtonColorFromSelect(select){
-    let btn = select.previousElementSibling;
+    let btn = select.parentElement.previousElementSibling;
     let newColor = select.value;
     btn.dataset.color = newColor;
     let filtered = currentTriads.filter(t => t.color === newColor);
