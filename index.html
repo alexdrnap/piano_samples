@@ -297,9 +297,9 @@ function generateTable(){
   colors.forEach(c=>{
     btnHTML+=`
     <div class="triadControl">
-      <button onclick="changeTriad('${c}',-1)">◀</button>
+      <button onclick="changeTriad(this.parentNode.querySelector('.colorBtn').dataset.color,-1)">◀</button>
       <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" data-color="${c}" style="background:${colorMap[c]}"></button>
-      <button onclick="changeTriad('${c}',1)">▶</button>
+      <button onclick="changeTriad(this.parentNode.querySelector('.colorBtn').dataset.color,1)">▶</button>
       <select class="colorSelect" onchange="updateButtonColorFromSelect(this)">
         ${Object.entries(colorMap).map(([k,v])=>`<option value="${v}" ${v===colorMap[c]?'selected':''}>${k}</option>`).join('')}
       </select>
@@ -319,7 +319,6 @@ function generateTable(){
 // --- Module 6: Color change dropdown ---
 function updateButtonColorFromSelect(select){
   const btn = select.previousElementSibling;
-  const oldColor = btn.dataset.color;
   const newColorHex = select.value;
   const newColor = Object.keys(colorMap).find(k=>colorMap[k]===newColorHex);
   if(!newColor) return;
@@ -331,7 +330,6 @@ function updateButtonColorFromSelect(select){
 
 // --- Initialize ---
 generateTable();
-
 </script>
 </body>
 </html>
