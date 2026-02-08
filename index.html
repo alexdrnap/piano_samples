@@ -187,25 +187,20 @@ async function changeSound(sound){
   }
 }
 
-// --- Module 4: Playback ---
+// --- Module 4: Playback with musical voicing ---
 function getTriadSamples(triad){
-  const notesSamples = triad.map(n=>{
-    const options = sampleMap[n];
-    if(!options) return n+"5";
-    return options[0]; // lowest sample default
-  });
+  const notesSamples = triad.map(n => sampleMap[n][0]); // pick lowest sample
 
+  // get MIDI numbers
+  const pitches = notesSamples.map(n => Tone.Frequency(n).toMidi());
+
+  // semitone swap rules
   let order = [0,1,2];
+  if(Math.abs(pitches[1]-pitches[0]) <= 2) order = [1,0,2];
+  else if(Math.abs(pitches[2]-pitches[1]) <= 2) order = [0,2,1];
 
-  function semitoneDistance(a,b){
-    return (noteIndex(b)-noteIndex(a)+12)%12;
-  }
-
-  const diff12 = semitoneDistance(triad[0],triad[1]);
-  const diff23 = semitoneDistance(triad[1],triad[2]);
-
-  if(diff12===1 || diff12===2) order = [1,0,2];
-  else if(diff23===1 || diff23===2) order = [0,2,1];
+  // finally sort ascending by pitch to get proper voicing
+  order.sort((a,b)=>pitches[a]-pitches[b]);
 
   return order.map(i=>notesSamples[i]);
 }
