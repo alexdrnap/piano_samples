@@ -54,11 +54,12 @@ const baseTriads={
 const dimTriad=['C','Eb','Gb'];
 const augTriad=['C','E','G#'];
 
-let currentTriads=[];
+let currentTriads=[]; 
 let pianoSampler;
 let activeSourceTriad=[];
+
 const colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
-let buttonStates={}; // store current state for cycling chords
+let buttonStates = {}; // store cycling state per color
 
 // ------------------- Triad classification -------------------
 function classify(triad,refBase,scale){
@@ -77,14 +78,12 @@ function classify(triad,refBase,scale){
   return['UNKNOWN','-'];
 }
 
-// ------------------- Flats to sharps -------------------
 function normalizeEnharmonics(triad){
   return triad.map(n=>{
     switch(n){case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default: return n;}
   });
 }
 
-// ------------------- Triad name -------------------
 function nameTriad(triad){
   if(new Set(triad).size<3) return '';
   triad=normalizeEnharmonics(triad);
@@ -113,7 +112,7 @@ function generateTriads(base){
   return Array.from(results).map(r=>r.split(','));
 }
 
-// ------------------- Piano Samples -------------------
+// ------------------- Piano samples -------------------
 const pianoSampleMapFirstCode = {
   "G#4":"GSharp4.wav","A4":"A4.wav","A#4":"ASharp4.wav","B4":"B4.wav",
   "C5":"C5.wav","C#5":"CSharp5.wav","D5":"D5.wav","D#5":"DSharp5.wav","E5":"E5.wav",
@@ -124,100 +123,115 @@ const githubBase = "https://raw.githubusercontent.com/alexdrnap/piano_samples/ma
 
 // ------------------- Audio -------------------
 async function resumeAudioContext(){if(Tone.context.state!=='running'){await Tone.start();}}
+
 async function playChord(notes){
   await resumeAudioContext();
   if(!pianoSampler){
     pianoSampler = new Tone.Sampler({urls:pianoSampleMapFirstCode, baseUrl: githubBase}).toDestination();
     await pianoSampler.loaded;
   }
+
   const availableNotes = Object.keys(pianoSampleMapFirstCode);
-  let prevIndex=-1;
-  const filteredNotes=notes.map(note=>{
-    note=normalizeEnharmonics([note])[0];
-    for(let octave of ["4","5","6"]){
-      let key = note+octave;
-      let sharpKey = note.replace('#','Sharp')+octave;
-      if(availableNotes.includes(key) || availableNotes.includes(sharpKey)){
-        let idx = availableNotes.indexOf(availableNotes.includes(key)? key : sharpKey);
-        if(idx > prevIndex){prevIndex=idx; return availableNotes[idx];}
-      }
-    }
-    return null;
-  }).filter(n=>n!==null);
-  filteredNotes.forEach(n=>pianoSampler.triggerAttackRelease(n,"1n"));
+
+  // Convert flats to sharps
+  notes = notes.map(n=>{
+    switch(n){case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default: return n;}
+  });
+
+  // Sort from low to high
+  notes.sort((a,b)=>{
+    let aIdx = availableNotes.findIndex(k=>k.replace('Sharp','')===a.replace('#',''));
+    let bIdx = availableNotes.findIndex(k=>k.replace('Sharp','')===b.replace('#',''));
+    return aIdx-bIdx;
+  });
+
+  notes.forEach(n=>{
+    let key = availableNotes.find(k=>k.replace('Sharp','')===n.replace('#',''));
+    if(key) pianoSampler.triggerAttackRelease(key,"1n");
+  });
 }
+
 function playChordFromButton(btn){
   const chordText = btn.querySelector('.chordText').textContent.trim();
   if(!chordText) return;
   const notes = chordText.split('-');
   playChord(notes);
 }
+
 function playSourceTriad(){if(activeSourceTriad.length>0) playChord(activeSourceTriad);}
 
-// ------------------- Table & Buttons -------------------
+// ------------------- Generate table & buttons -------------------
 function generateTable(){
   const scaleKey=document.getElementById('scaleSelect').value;
   const scale=scales[scaleKey];
   activeSourceTriad=baseTriads[scaleKey];
 
-  let cTriads=[];
-  // Main scale triads
-  generateTriads(baseTriads[scaleKey]).forEach(t=>{
-    const [color,degree]=classify(t,baseTriads[scaleKey],scale);
-    const name=nameTriad(t);
-    if(name) cTriads.push({triad:normalizeEnharmonics(t),color,degree,name,source:scaleKey});
+  let cTriads=[]; let mainC=generateTriads(baseTriads[scaleKey]);
+  mainC.forEach(t=>{
+    const refBase=baseTriads[scaleKey]; const [color,degree]=classify(t,refBase,scale);
+    const name=nameTriad(t); if(name) cTriads.push({triad:t,color,degree,name,source:scaleKey});
   });
-  // Dim / Aug
+
   if(scaleKey!=='major'){
-    generateTriads(dimTriad).forEach(t=>{
-      const [color,degree]=classify(t,baseTriads[scaleKey],scale);
-      const name=nameTriad(t);
-      if(name) cTriads.push({triad:normalizeEnharmonics(t),color,degree,name,source:'C dim'});
+    let dimC=generateTriads(dimTriad);
+    dimC.forEach(t=>{
+      const refBase=baseTriads[scaleKey]; const [color,degree]=classify(t,refBase,scale);
+      const name=nameTriad(t); if(name) cTriads.push({triad:t,color,degree,name,source:'C dim'});
     });
   } else {
-    generateTriads(augTriad).forEach(t=>{
-      const [color,degree]=classify(t,baseTriads[scaleKey],scale);
-      const name=nameTriad(t);
-      if(name) cTriads.push({triad:normalizeEnharmonics(t),color,degree,name,source:'C aug'});
+    let augC=generateTriads(augTriad);
+    augC.forEach(t=>{
+      const refBase=baseTriads[scaleKey]; const [color,degree]=classify(t,refBase,scale);
+      const name=nameTriad(t); if(name) cTriads.push({triad:t,color,degree,name,source:'C aug'});
     });
   }
 
   // Deduplicate
-  let uniqueC=[], seen=new Set();
+  let uniqueC=[]; let seen=new Set();
   cTriads.forEach(obj=>{
-    let key=obj.triad.join(',');
-    if(!seen.has(key)){ seen.add(key); uniqueC.push(obj);}
+    let canonical=obj.triad.slice().sort((a,b)=>noteOrder.indexOf(a)-noteOrder.indexOf(b)).join(',');
+    if(!seen.has(canonical)){ seen.add(canonical); uniqueC.push(obj); }
   });
   currentTriads=uniqueC;
 
-  // ----------------- Table -----------------
-  const colorOrder=['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
-  let html='<table><tr><th>Triad</th><th>Chord Name</th><th>Category</th><th>Degree</th><th>Source</th></tr>';
-  colorOrder.forEach(c=>{
-    currentTriads.filter(t=>t.color===c).forEach(obj=>{
-      let textColor=(c==='BLACK')?'#fff':'#000';
-      html+=`<tr><td>${obj.triad.join('-')}</td><td>${obj.name}</td><td style="background-color:${colorMap[c]}; color:${textColor}">${c}</td><td>${obj.degree}</td><td>${obj.source}</td></tr>`;
-    });
+  // Precompute button states for cycling
+  buttonStates = {};
+  Object.keys(colorMap).forEach(c=>{
+    buttonStates[c] = {list: currentTriads.filter(t=>t.color===c), index:-1};
   });
-  html+='</table>';
-  document.getElementById('output').innerHTML=html;
 
-  // ----------------- Buttons -----------------
+  // Table sorted RED->BLACK
+  const colorOrder = ['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
+  uniqueC.sort((a,b)=>colorOrder.indexOf(a.color)-colorOrder.indexOf(b.color));
+
+  let html='<table><tr><th>Triad</th><th>Chord Name</th><th>Category</th><th>Degree</th><th>Source</th></tr>';
+  uniqueC.forEach(obj=>{
+    let textColor = obj.color==='BLACK'?'#FFFFFF':'#000000';
+    html+=`<tr>
+      <td>${obj.triad.join('-')}</td>
+      <td>${obj.name}</td>
+      <td style="background-color:${colorMap[obj.color]};color:${textColor}">${obj.color}</td>
+      <td>${obj.degree}</td>
+      <td>${obj.source}</td>
+    </tr>`;
+  });
+  html+='</table>'; document.getElementById('output').innerHTML=html;
+
+  // Buttons by color
+  let colors=['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
   let btnHTML='';
-  colorOrder.forEach(c=>{
-    let filtered=currentTriads.filter(t=>t.color===c);
-    if(filtered.length===0) return;
-    // precompute cycling index
-    buttonStates[c]={list:filtered,index:0};
-    let choice=filtered[0];
-    let textColor=(c==='BLACK')?'#fff':'#000';
+  colors.forEach(c=>{
+    let list = buttonStates[c].list;
+    let choice = list.length>0 ? list[0] : {triad:['-','-','-'], name:''};
+    let colorHex=colorMap[c];
+    let textColor = c==='BLACK'?'#FFFFFF':'#000000';
     btnHTML+=`<div style="margin-bottom:5px;">
-      <button class='colorBtn' style='background-color:${colorMap[c]}; color:${textColor}' onclick='nextChord("${c}", this)'>
+      <button class='colorBtn' style='background-color:${colorHex};color:${textColor}' onclick='nextChord("${c}", this)'>
         <span class="chordText">${choice.triad.join('-')}</span>
         <span class='chordName'>${choice.name}</span>
       </button>
       <select class='colorSelect' onchange='updateButtonColorFromSelect(this)'>
-        ${Object.entries(colorMap).map(([k,v])=>`<option value='${k}' ${k===c?'selected':''}>${k}</option>`).join('')}
+        ${Object.entries(colorMap).map(([k,v])=>`<option value='${v}' ${v===colorHex?'selected':''}>${k}</option>`).join('')}
       </select>
       <button onclick='playChordFromButton(this.previousElementSibling.previousElementSibling)'>Play</button>
     </div>`;
@@ -225,29 +239,36 @@ function generateTable(){
   document.getElementById('buttons').innerHTML=btnHTML;
 }
 
-// ----------------- Next chord in order -----------------
-function nextChord(color, btn){
-  let state=buttonStates[color];
-  if(!state || state.list.length===0) return;
-  state.index=(state.index+1)%state.list.length;
-  let choice=state.list[state.index];
-  btn.querySelector('.chordText').textContent=choice.triad.join('-');
-  btn.querySelector('.chordName').textContent=choice.name;
+// ------------------- Next chord (cycle by current button color) -----------------
+function nextChord(dummyColor, btn){
+  let bgColor = btn.style.backgroundColor;
+  let colorKey = Object.keys(colorMap).find(k => colorMap[k] === bgColor);
+  if(!colorKey) return;
+
+  let state = buttonStates[colorKey];
+  if(!state || state.list.length === 0) return;
+
+  state.index = (state.index + 1) % state.list.length;
+  let choice = state.list[state.index];
+
+  btn.querySelector('.chordText').textContent = choice.triad.join('-');
+  btn.querySelector('.chordName').textContent = choice.name;
+
   playChord(choice.triad);
 }
 
-// ----------------- Update button color and override function -----------------
+// ------------------- Update button color -----------------
 function updateButtonColorFromSelect(select){
-  let btn=select.previousElementSibling;
-  let newColor=select.value;
-  let filtered=currentTriads.filter(t=>t.color===newColor);
-  if(filtered.length===0) return;
-  buttonStates[newColor]={list:filtered,index:0};
-  let choice=filtered[0];
-  btn.querySelector('.chordText').textContent=choice.triad.join('-');
-  btn.querySelector('.chordName').textContent=choice.name;
-  btn.style.backgroundColor=colorMap[newColor];
-  btn.style.color=(newColor==='BLACK')?'#fff':'#000';
+  let btn = select.previousElementSibling;
+  let selectedColor = Object.keys(colorMap).find(k=>colorMap[k]===select.value);
+  let list = buttonStates[selectedColor].list;
+  if(list.length>0){
+    let choice = list[0];
+    btn.querySelector('.chordText').textContent = choice.triad.join('-');
+    btn.querySelector('.chordName').textContent = choice.name;
+  }
+  btn.style.backgroundColor = select.value;
+  btn.style.color = selectedColor==='BLACK'?'#FFFFFF':'#000000';
 }
 
 generateTable();
