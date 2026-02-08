@@ -1,3 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chord Familiarity Generator - Real Piano</title>
+<style>
+body { font-family: sans-serif; padding: 10px; }
+table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+td, th { border: 1px solid #888; padding: 5px 10px; text-align: center; }
+button.colorBtn { margin: 3px; padding: 10px; min-width: 100px; display: flex; flex-direction: column; align-items: center; }
+button .chordName { font-size: 0.7em; color: #333; }
+.colorSelect { margin-left:5px; vertical-align:middle; }
+button#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-color:#66CC66; color:#000; }
+</style>
+</head>
+<body>
+<h2>Chord Familiarity Generator - Real Piano</h2>
+
+<label for="scaleSelect">Select reference scale:</label>
+<select id="scaleSelect" onchange="generateTable()">
+  <option value="major">Major</option>
+  <option value="naturalMinor">Natural Minor</option>
+  <option value="harmonicMinor">Harmonic Minor</option>
+  <option value="melodicMinor">Melodic Minor</option>
+</select>
+
+<br><br>
+<button id="playSource" onclick="playSourceTriad()">Play Source Triad</button>
+
+<br><br>
+<div id="buttons"></div>
+<div id="output"></div>
+
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
 // ------------------- Note & scale utils -------------------
@@ -119,9 +153,11 @@ function playChordFromButton(btn){
 }
 function playSourceTriad(){if(activeSourceTriad.length>0) playChord(activeSourceTriad);}
 
-// ----------------- Table & Buttons (updated) -----------------
+// ----------------- Table & Buttons -----------------
 function generateTable() {
-    const scaleKey = document.getElementById('scaleSelect').value;
+    const scaleSelect = document.getElementById('scaleSelect');
+    if(!scaleSelect) return; // safety check
+    const scaleKey = scaleSelect.value;
     const scale = scales[scaleKey];
     activeSourceTriad = baseTriads[scaleKey];
 
@@ -154,7 +190,7 @@ function generateTable() {
     });
     currentTriads = uniqueC;
 
-    // ----------------- Table -----------------
+    // Table
     const colorOrder = ['RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
     let html = '<table><tr><th>Triad</th><th>Chord Name</th><th>Category</th><th>Degree</th><th>Source</th></tr>';
     colorOrder.forEach(c => {
@@ -166,15 +202,13 @@ function generateTable() {
     html += '</table>';
     document.getElementById('output').innerHTML = html;
 
-    // ----------------- Buttons -----------------
+    // Buttons
     let btnHTML = '';
     colorOrder.forEach(c => {
         let filtered = currentTriads.filter(t => t.color === c);
         if (filtered.length === 0) return;
-
         let choice = filtered[0];
         let textColor = (c === 'BLACK') ? '#fff' : '#000';
-
         btnHTML += `<div style="margin-bottom:5px;">
             <button class='colorBtn' style='background-color:${colorMap[c]}; color:${textColor}' data-color='${c}' onclick='nextChord(this)'>
                 <span class="chordText">${choice.triad.join('-')}</span>
@@ -188,7 +222,6 @@ function generateTable() {
     });
     document.getElementById('buttons').innerHTML = btnHTML;
 
-    // Attach button-specific states
     document.querySelectorAll('.colorBtn').forEach(btn => {
         const color = btn.dataset.color;
         const filtered = currentTriads.filter(t => t.color === color);
@@ -196,7 +229,7 @@ function generateTable() {
     });
 }
 
-// ----------------- Next chord (button-specific) -----------------
+// Next chord per button
 function nextChord(btn) {
     let state = btn.buttonState;
     if (!state || state.list.length === 0) return;
@@ -207,12 +240,11 @@ function nextChord(btn) {
     playChord(choice.triad);
 }
 
-// ----------------- Update button color (dynamic chord routing) -----------------
+// Update button color
 function updateButtonColorFromSelect(select){
     let btn = select.previousElementSibling;
     let newColor = select.value;
     btn.dataset.color = newColor;
-
     let filtered = currentTriads.filter(t => t.color === newColor);
     if (filtered.length === 0) return;
     btn.buttonState = { list: filtered, index: 0 };
@@ -224,5 +256,11 @@ function updateButtonColorFromSelect(select){
 }
 
 // ----------------- Initialize -----------------
-generateTable();
+document.addEventListener('DOMContentLoaded', () => {
+    // User gesture to start AudioContext silently
+    document.body.addEventListener('click', async () => { await Tone.start(); }, { once: true });
+    generateTable();
+});
 </script>
+</body>
+</html>
