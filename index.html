@@ -26,7 +26,21 @@ button#playSource { margin: 10px; padding: 15px; font-size: 1.2em; background-co
 </select>
 
 <br><br>
-<button id="playSource" onclick="playSourceTriad()">Play Source Triad</button>
+<label for="colorSelect">Select button color:</label>
+<select id="colorSelect" onchange="updateButtonColor()">
+  <option value="RED">RED</option>
+  <option value="ORANGE">ORANGE</option>
+  <option value="GOLD">GOLD</option>
+  <option value="YELLOW">YELLOW</option>
+  <option value="BLUE">BLUE</option>
+  <option value="WHITE">WHITE</option>
+  <option value="LIGHT GREY">LIGHT GREY</option>
+  <option value="DARK GREY">DARK GREY</option>
+  <option value="BLACK">BLACK</option>
+</select>
+
+<br><br>
+<button id="playSource" onclick="playRandomChordOfColor()">Play Random Chord</button>
 
 <br><br>
 <label for="soundSelect">Select sound:</label>
@@ -65,8 +79,7 @@ let currentTriads=[];
 let currentSound='piano';
 let pianoSampler=null;
 let activeSourceTriad=[];
-let currentSynth=null;
-const colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
+let colorMap={RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
 
 // ------------------- Triad classification -------------------
 function classify(triad,refBase,scale){
@@ -170,24 +183,15 @@ async function playChord(notes){
   // Filter notes to available range
   const availableNotes = Object.keys(pianoSampleMap);
   const filteredNotes = notes.map(n=>{
-    for(let o of ["4","5","6"]){
-      if(availableNotes.includes(n+o)) return n+o;
-      if(availableNotes.includes(n+o.replace('#','Sharp'))) return n+o.replace('#','Sharp');
-    }
+    if(availableNotes.includes(n)) return n;
     return null;
   }).filter(n=>n!==null);
 
   // Sort by pitch
-  filteredNotes.sort((a,b)=>{
-    const aIdx = availableNotes.indexOf(a);
-    const bIdx = availableNotes.indexOf(b);
-    return aIdx-bIdx;
-  });
+  filteredNotes.sort((a,b)=> availableNotes.indexOf(a)-availableNotes.indexOf(b));
 
-  // Play each note sequentially (1n duration)
-  filteredNotes.forEach(n=>{
-    pianoSampler.triggerAttackRelease(n,"1n");
-  });
+  // Play each note sequentially
+  filteredNotes.forEach(n=> pianoSampler.triggerAttackRelease(n,"1n"));
 }
 
 // ------------------- Play from button -------------------
@@ -199,14 +203,27 @@ async function playChordFromButton(btn){
   playChord(notes);
 }
 
-async function playSourceTriad(){
+// ------------------- Play random chord of selected color -------------------
+async function playRandomChordOfColor(){
   await resumeAudioContext();
-  if(activeSourceTriad.length>0) playChord(activeSourceTriad);
+  const selectedColor=document.getElementById('colorSelect').value;
+  const chords=currentTriads.filter(t=>t.color===selectedColor);
+  if(chords.length===0) return;
+  const randomChord=chords[Math.floor(Math.random()*chords.length)];
+  playChord(randomChord.triad);
 }
 
 // ------------------- Sound change -------------------
 async function changeSound(sound){
   currentSound = sound;
+}
+
+// ------------------- Update button color -------------------
+function updateButtonColor(){
+  const selectedColor=document.getElementById('colorSelect').value;
+  document.querySelectorAll('.colorBtn').forEach(btn=>{
+    btn.style.backgroundColor=colorMap[selectedColor];
+  });
 }
 
 // ------------------- Generate table -------------------
