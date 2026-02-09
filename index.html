@@ -10,6 +10,7 @@ table { border-collapse: collapse; margin-top: 10px; width: 100%; }
 td, th { border: 1px solid #888; padding: 5px 10px; text-align: center; }
 button.colorBtn { margin: 3px; padding: 10px; min-width: 100px; display: flex; flex-direction: column; align-items: center; }
 button .chordName { font-size: 0.7em; color: #333; }
+button .sourceLabel { font-size: 0.6em; opacity: 0.7; margin-top:2px; }
 .selectableText { user-select: text; cursor: text; }
 .colorSelect { margin-top: 3px; vertical-align:middle; width:100%; }
 #playSource { margin: 10px; padding: 15px; font-size: 1.2em; display: flex; flex-direction: column; align-items: center; }
@@ -54,13 +55,8 @@ button .chordName { font-size: 0.7em; color: #333; }
 /* =======================
    CORE PITCH SYSTEM
 ======================= */
-
 const NOTE_ORDER = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-
-const ENHARMONIC = {
-  Db:'C#', Eb:'D#', Gb:'F#', Ab:'G#', Bb:'A#'
-};
-
+const ENHARMONIC = { Db:'C#', Eb:'D#', Gb:'F#', Ab:'G#', Bb:'A#' };
 function normalize(n){ return ENHARMONIC[n] || n; }
 function pc(n){ return NOTE_ORDER.indexOf(normalize(n)); }
 function note(pc){ return NOTE_ORDER[(pc+12)%12]; }
@@ -68,7 +64,6 @@ function note(pc){ return NOTE_ORDER[(pc+12)%12]; }
 /* =======================
    SCALES & TRIADS (PC)
 ======================= */
-
 const SCALES = {
   major:[0,2,4,5,7,9,11],
   naturalMinor:[0,2,3,5,7,8,10],
@@ -87,26 +82,32 @@ const DIM_TRIAD=[0,3,6];
 const AUG_TRIAD=[0,4,8];
 
 /* =======================
+   SCALE ABBREVIATIONS
+======================= */
+const SCALE_ABBR = {
+  major:'maj',
+  naturalMinor:'min',
+  harmonicMinor:'harmMin',
+  melodicMinor:'melMin'
+};
+
+/* =======================
    COLOR SYSTEM
 ======================= */
-
 const colorMap={
   RED:'#FF4C4C', ORANGE:'#FF9900', GOLD:'#FFD700', YELLOW:'#FFFF66',
   BLUE:'#6699FF', WHITE:'#FFFFFF',
   "LIGHT GREY":'#CCCCCC', "DARK GREY":'#888888', BLACK:'#000000'
 };
-
 const colorOrder=Object.keys(colorMap);
 
 /* =======================
    CLASSIFICATION
 ======================= */
-
 function classify(triad,base,scale){
   let same=triad.filter(n=>base.includes(n)).length;
   let inScale=triad.filter(n=>!base.includes(n)&&scale.includes(n)).length;
   let out=3-same-inScale;
-
   if(same==2&&inScale==1)return['RED','high'];
   if(same==2&&out==1)return['ORANGE','strong'];
   if(same==1&&inScale==2)return['GOLD','medium'];
@@ -121,7 +122,6 @@ function classify(triad,base,scale){
 /* =======================
    NAMING
 ======================= */
-
 function nameTriad(triad){
   const patterns=[
     {i:[0,4,7],l:'major'},
@@ -131,7 +131,6 @@ function nameTriad(triad){
     {i:[0,2,7],l:'sus2'},
     {i:[0,5,7],l:'sus4'}
   ];
-
   for(let r=0;r<3;r++){
     let rot=[triad[r],triad[(r+1)%3],triad[(r+2)%3]];
     let ints=rot.map(n=>(n-rot[0]+12)%12).sort((a,b)=>a-b);
@@ -146,7 +145,6 @@ function nameTriad(triad){
 /* =======================
    TRIAD GENERATION
 ======================= */
-
 function generateTriads(base){
   let set=new Set();
   for(let a=-2;a<=2;a++)
@@ -161,13 +159,11 @@ function generateTriads(base){
 /* =======================
    AUDIO
 ======================= */
-
 let pianoSampler=null, currentSound='piano', currentSynth=null;
 const sampleChoiceMap={
   0:["C5","C6"],1:["C#5"],2:["D5"],3:["D#5"],4:["E5"],5:["F5"],
   6:["F#5"],7:["G5"],8:["G#4","G#5"],9:["A4","A5"],10:["A#4","A#5"],11:["B4","B5"]
 };
-
 async function changeSound(s){
   currentSound=s;
   if(s==='piano'&&!pianoSampler){
@@ -184,14 +180,11 @@ async function changeSound(s){
     await pianoSampler.loaded;
   }
 }
-
 async function playChord(triad){
   await Tone.start();
   if(currentSynth){currentSynth.dispose();currentSynth=null;}
-
   let sorted=[...triad].sort((a,b)=>a-b);
   let notes=sorted.map((p,i)=>sampleChoiceMap[p][i?1:0]);
-
   if(currentSound==='piano') notes.forEach(n=>pianoSampler.triggerAttackRelease(n,'1n'));
   else{
     currentSynth=new Tone.PolySynth(Tone.AMSynth).toDestination();
@@ -202,7 +195,6 @@ async function playChord(triad){
 /* =======================
    UI
 ======================= */
-
 let currentTriads=[], activeSource=[];
 
 function playSourceTriad(){ if(activeSource.length) playChord(activeSource); }
@@ -212,26 +204,71 @@ function generateTable(){
   const scale=SCALES[key];
   const base=BASE_TRIADS[key];
   activeSource=base;
+
+  const tonic='C'; // always C for now
+  const sourceLabel = tonic + SCALE_ABBR[key];
   sourceTriadLabel.textContent=base.map(note).join('-');
 
   let triads=[];
   generateTriads(base).forEach(t=>{
     const [c,w]=classify(t,base,scale);
     const name=nameTriad(t);
-    if(name) triads.push({triad:t,name,computedColor:c,userColor:c,weight:w});
+    if(name) triads.push({triad:t,name,computedColor:c,userColor:c,weight:w,source:sourceLabel});
   });
 
   currentTriads=triads.sort((a,b)=>colorOrder.indexOf(a.computedColor)-colorOrder.indexOf(b.computedColor));
 
-  output.innerHTML='<table><tr><th>Triad</th><th>Name</th><th>Category</th><th>Weight</th></tr>'+
+  output.innerHTML='<table><tr><th>Triad</th><th>Name</th><th>Category</th><th>Weight</th><th>Source</th></tr>'+
     currentTriads.map(o=>
       `<tr style="background:${colorMap[o.computedColor]};${o.computedColor==='BLACK'?'color:white':''}">
-      <td>${o.triad.map(note).join('-')}</td><td>${o.name}</td>
-      <td>${o.computedColor}</td><td>${o.weight}</td></tr>`
+      <td>${o.triad.map(note).join('-')}</td>
+      <td>${o.name}</td>
+      <td>${o.computedColor}</td>
+      <td>${o.weight}</td>
+      <td>${o.source}</td></tr>`
     ).join('')+'</table>';
-}
 
+  // Buttons with source label
+  let btnHTML='';
+  colorOrder.forEach(c=>{
+    const list=currentTriads.filter(t=>t.computedColor===c);
+    if(list.length===0) return;
+    const first=list[0];
+    btnHTML+=`
+    <div class="triadControl" data-color="${c}" data-index="0">
+      <button class="colorBtn ${c==='BLACK'?'blackBtn':''}" style="background:${colorMap[c]}">
+        <span class="selectableText">${first.triad.map(note).join('-')}</span>
+        <span class="chordName" ${c==='BLACK'?'style="color:white;"':''}>${first.name}</span>
+        <span class="sourceLabel">(Source: ${first.source})</span>
+      </button>
+      <div class="navButtons">
+        <button onclick="scrollTriad(this.parentNode.parentNode,-1)">◀</button>
+        <button onclick="scrollTriad(this.parentNode.parentNode,1)">▶</button>
+      </div>
+    </div>`;
+  });
+  buttons.innerHTML=btnHTML;
+}
 generateTable();
+
+/* =======================
+   TRIAD NAVIGATION
+======================= */
+function scrollTriad(container, dir){
+  const color = container.dataset.color;
+  const list = currentTriads.filter(t=>t.computedColor===color);
+  if(list.length===0) return;
+  let idx = parseInt(container.dataset.index||0);
+  idx = (idx + dir + list.length)%list.length;
+  container.dataset.index=idx;
+  const o=list[idx];
+  const btn=container.querySelector('.colorBtn');
+  btn.querySelector('.selectableText').textContent=o.triad.map(note).join('-');
+  btn.querySelector('.chordName').textContent=o.name;
+  btn.querySelector('.sourceLabel').textContent=`(Source: ${o.source})`;
+  if(color==='BLACK') btn.querySelector('.chordName').style.color='white';
+  else btn.querySelector('.chordName').style.color='#333';
+}
 </script>
 </body>
 </html>
