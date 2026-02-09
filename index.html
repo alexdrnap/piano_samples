@@ -14,7 +14,7 @@ button .chordName { font-size: 0.7em; color: #333; }
 .packageHeader { display: flex; justify-content: space-between; align-items: center; cursor: move; background: #ddd; padding: 2px 5px; }
 .navButtons { display: flex; justify-content: center; margin: 3px 0; }
 .navButtons button { margin: 0 2px; }
-.triadBtn { width: 100%; margin: 3px 0; }
+.triadBtn, .playBtn { width: 100%; margin: 3px 0; height: 40px; font-size: 0.9em; }
 .deletePackage { background:red; color:white; border:none; cursor:pointer; padding:0 5px; }
 </style>
 </head>
@@ -72,9 +72,7 @@ function normalizeEnharmonics(triad){ return triad.map(n=>{
   switch(n){ case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default: return n; } }); }
 
 function classify(triad,refBase,scale){
-  // Exact match to base triad → BASE
   if(triad.slice().sort().join(',') === refBase.slice().sort().join(',')) return ['BASE','1/1'];
-
   let same=triad.filter(n=>refBase.includes(n)).length;
   let inScale=triad.filter(n=>!refBase.includes(n)&&scale.includes(n)).length;
   let outScale=triad.length-same-inScale;
@@ -184,6 +182,9 @@ function createPlayPackage(x=50,y=50){
     btn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
     btn.style.background=colorMap[color];
     btn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
+    const playBtn=container.querySelector('.playBtn');
+    playBtn.style.background=colorMap[color];
+    playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
   }
 
   container.querySelector('.scaleSelect').onchange=()=>{currentIndex=0; updateTriad();};
@@ -197,15 +198,15 @@ function createPlayPackage(x=50,y=50){
   };
   container.querySelector('.deletePackage').onclick=()=>container.remove();
 
-  // Dragging
+  // Dragging per package
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
-  header.onmousedown=(e)=>{
+  header.addEventListener('mousedown', e=>{
     dragging=true; offsetX=e.clientX-container.offsetLeft; offsetY=e.clientY-container.offsetTop;
     e.preventDefault();
-  };
-  document.onmouseup=()=>dragging=false;
-  document.onmousemove=(e)=>{ if(dragging){container.style.left=(e.clientX-offsetX)+'px'; container.style.top=(e.clientY-offsetY)+'px';}};
+  });
+  document.addEventListener('mouseup', ()=>dragging=false);
+  document.addEventListener('mousemove', e=>{ if(dragging){ container.style.left=(e.clientX-offsetX)+'px'; container.style.top=(e.clientY-offsetY)+'px'; }});
 
   updateTriad();
 }
