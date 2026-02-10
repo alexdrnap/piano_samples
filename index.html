@@ -173,10 +173,13 @@ const colorOrder = ['BASE','RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT 
 const sampleChoiceMap = { "C":["C5","C6"], "C#":["C#5"], "D":["D5"], "D#":["D#5"], "E":["E5"], "F":["F5"], "F#":["F#5"], "G":["G5"], "G#":["G#4","G#5"], "A":["A4","A5"], "A#":["A#4","A#5"], "B":["B4","B5"] };
 const pianoSamplerUrls = { "A4":"A4.wav","A5":"A5.wav","A#4":"ASharp4.wav","A#5":"ASharp5.wav","B4":"B4.wav","B5":"B5.wav","C5":"C5.wav","C6":"C6.wav","C#5":"CSharp5.wav","D5":"D5.wav","D#5":"DSharp5.wav","E5":"E5.wav","F5":"F5.wav","F#5":"FSharp5.wav","G5":"G5.wav","G#4":"GSharp4.wav","G#5":"GSharp5.wav"};
 
-// --- FUNCTIONS (noteIndex, transpose, normalizeEnharmonics, classify, nameTriad, generateTriads, getTriadSamples, playChord, precompute allTriads, createPlayPackage) ---
-// --- This is exactly the same as your previously working JS ---
-// For brevity, it’s long but should be copied fully from the last working version.
+// ---------------- ALL FUNCTIONS ----------------
+// Paste here all the JS from your previous working version, exactly as it was:
+// noteIndex, transpose, normalizeEnharmonics, classify, nameTriad, generateTriads,
+// getTriadSamples, playChord, changeSound, precompute allTriads, createPlayPackage
 
+// ---------------- INSERT BUTTON ----------------
+document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20*Math.random(),50+20*Math.random());};
 </script>
 </body>
 </html>
