@@ -37,7 +37,7 @@ select {
 
 /* ---------- COLOR SELECT WIDER ---------- */
 .colorSelect {
-    width: 100%; /* match triad button width */
+    width: 100%;
     padding: 6px 10px;
     margin: 0 0 10px 0;
     background-color: #333;
@@ -99,7 +99,7 @@ button:hover {
 /* ---------- TRIAD & PLAY BUTTON ---------- */
 .triadBtn, .playBtn {
     width: 100%;
-    height: 70px;          
+    height: 70px;
     font-size: 0.95em;
     padding: 5px;
     text-align: center;
@@ -254,17 +254,22 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     const [color,degree]=classify(t,baseTriad,scaleNotes);
     const name=nameTriad(t);
     if(!name) return null;
+
+    // --- CORRECT NEXT COLUMN LOGIC ---
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
+    // Determine suffix from current row's Source column
+    let sourceSuffix = (key+label).endsWith('maj') ? 'maj' : 'min';
+
     if(['major','minor','dim','aug','sus2','sus4'].includes(chordOnly)){
-      if(chordOnly==='major') nextRef='major';
-      else if(chordOnly==='minor') nextRef='naturalMinor';
-      else nextRef=chordOnly+'_min';
+        if(chordOnly==='major') nextRef='major';
+        else if(chordOnly==='minor') nextRef='naturalMinor';
+        else nextRef = chordOnly + '_' + sourceSuffix;
     } else {
-      const suffix = (key+label).endsWith('maj')?'maj':'min';
-      nextRef = chordOnly+'_'+suffix;
+        nextRef = chordOnly + '_' + sourceSuffix;
     }
+
     return {triad:t,color,degree,name,source:key+label,nextRef};
   }).filter(Boolean);
   return triads;
@@ -366,39 +371,17 @@ function createPlayPackage(x=50,y=50){
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
-
-  // --- DELETE BUTTON (mobile ready) ---
-  const deleteBtn = container.querySelector('.deletePackage');
-  deleteBtn.onclick = () => container.remove();
-  deleteBtn.addEventListener('touchend', (e) => {
-    e.stopPropagation();
-    container.remove();
-  });
+  container.querySelector('.deletePackage').onclick=()=>container.remove();
 
   // --- TOUCH DRAG ---
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
-  function startDrag(e){
-      if(e.target.closest('.deletePackage')) return; // ignore drag if touching delete
-      dragging=true;
-      const ev = e.touches?e.touches[0]:e;
-      offsetX=ev.clientX-container.offsetLeft;
-      offsetY=ev.clientY-container.offsetTop;
-      e.preventDefault();
-  }
-  function drag(e){ 
-      if(!dragging) return; 
-      const ev = e.touches?e.touches[0]:e; 
-      container.style.left=(ev.clientX-offsetX)+'px'; 
-      container.style.top=(ev.clientY-offsetY)+'px'; 
-  }
+  function startDrag(e){dragging=true; const ev = e.touches?e.touches[0]:e; offsetX=ev.clientX-container.offsetLeft; offsetY=ev.clientY-container.offsetTop; e.preventDefault();}
+  function drag(e){ if(!dragging) return; const ev = e.touches?e.touches[0]:e; container.style.left=(ev.clientX-offsetX)+'px'; container.style.top=(ev.clientY-offsetY)+'px'; }
   function stopDrag(){dragging=false;}
-  header.addEventListener('mousedown',startDrag); 
-  header.addEventListener('touchstart',startDrag);
-  window.addEventListener('mousemove',drag); 
-  window.addEventListener('touchmove',drag);
-  window.addEventListener('mouseup',stopDrag); 
-  window.addEventListener('touchend',stopDrag);
+  header.addEventListener('mousedown',startDrag); header.addEventListener('touchstart',startDrag);
+  window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
+  window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
 
   updateTriad();
 }
@@ -408,3 +391,4 @@ document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20
 </script>
 </body>
 </html>
+
