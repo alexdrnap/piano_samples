@@ -5,24 +5,144 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chord Familiarity Generator - Play Packages</title>
 <style>
-body { font-family: 'Segoe UI', sans-serif; padding: 10px; margin: 0; background-color: #1e1e1e; color: #eee; }
-h2 { text-align: center; color: #fff; }
-button, select { cursor: pointer; font-size: 0.95em; border: none; border-radius: 6px; outline: none; }
-select { padding: 6px 10px; margin: 0 5px 10px 0; background-color: #333; color: #eee; }
-.colorSelect { width: 100%; padding: 6px 10px; margin: 0 0 10px 0; background-color: #333; color: #eee; border-radius: 6px; box-sizing: border-box; }
-button { padding: 10px; background-color: #444; color: #fff; transition: background 0.2s; }
-button:hover { background-color: #555; }
-.playPackage { position: absolute; border: 1px solid #555; padding: 12px; background: #2c2c2c; width: 260px; z-index: 1000; box-sizing: border-box; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-.packageHeader { display: flex; justify-content: space-between; align-items: center; cursor: move; background: #3a3a3a; padding: 8px 10px; border-radius: 8px; user-select: none; }
-.packageHeader span { font-weight: bold; color: #fff; }
-.deletePackage { background: #e74c3c; color: #fff; font-size: 1.2em; padding: 4px 8px; border-radius: 6px; }
-.triadBtn, .playBtn { width: 100%; height: 70px; font-size: 0.95em; padding: 5px; text-align: center; border-radius: 8px; transition: transform 0.1s; display: flex; flex-direction: column; justify-content: center; align-items: center; word-break: break-word; }
-.triadBtn:active, .playBtn:active { transform: scale(0.97); }
-.triadBtn.blackBtn, .playBtn.blackBtn { color: #fff; }
-.navButtons { display: flex; justify-content: center; margin: 6px 0; }
-.navButtons button { flex: 1; margin: 0 3px; background-color: #444; color: #fff; border-radius: 6px; }
-.navButtons button:hover { background-color: #555; }
-.selectableText, .chordName { display: block; font-weight: 500; }
+/* ---------- GENERAL STYLES ---------- */
+body {
+    font-family: 'Segoe UI', sans-serif;
+    padding: 10px;
+    margin: 0;
+    background-color: #1e1e1e;
+    color: #eee;
+}
+
+h2 {
+    text-align: center;
+    color: #fff;
+}
+
+/* ---------- SELECTS & BUTTONS ---------- */
+button, select {
+    cursor: pointer;
+    font-size: 0.95em;
+    border: none;
+    border-radius: 6px;
+    outline: none;
+}
+
+select {
+    padding: 6px 10px;
+    margin: 0 5px 10px 0;
+    background-color: #333;
+    color: #eee;
+}
+
+/* ---------- COLOR SELECT WIDER ---------- */
+.colorSelect {
+    width: 100%;
+    padding: 6px 10px;
+    margin: 0 0 10px 0;
+    background-color: #333;
+    color: #eee;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+button {
+    padding: 10px;
+    background-color: #444;
+    color: #fff;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background-color: #555;
+}
+
+/* ---------- PLAY PACKAGE CONTAINER ---------- */
+.playPackage {
+    position: absolute;
+    border: 1px solid #555;
+    padding: 12px;
+    background: #2c2c2c;
+    width: 260px;
+    z-index: 1000;
+    box-sizing: border-box;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+/* ---------- PACKAGE HEADER ---------- */
+.packageHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    background: #3a3a3a;
+    padding: 8px 10px;
+    border-radius: 8px;
+    user-select: none;
+}
+
+.packageHeader span {
+    font-weight: bold;
+    color: #fff;
+}
+
+/* ---------- CLOSE BUTTON ---------- */
+.deletePackage {
+    background: #e74c3c;
+    color: #fff;
+    font-size: 1.2em;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+/* ---------- TRIAD & PLAY BUTTON ---------- */
+.triadBtn, .playBtn {
+    width: 100%;
+    height: 70px;
+    font-size: 0.95em;
+    padding: 5px;
+    text-align: center;
+    border-radius: 8px;
+    transition: transform 0.1s;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    word-break: break-word;
+}
+
+.triadBtn:active, .playBtn:active {
+    transform: scale(0.97);
+}
+
+.triadBtn.blackBtn, .playBtn.blackBtn {
+    color: #fff;
+}
+
+/* ---------- NAV BUTTONS ---------- */
+.navButtons {
+    display: flex;
+    justify-content: center;
+    margin: 6px 0;
+}
+
+.navButtons button {
+    flex: 1;
+    margin: 0 3px;
+    background-color: #444;
+    color: #fff;
+    border-radius: 6px;
+}
+
+.navButtons button:hover {
+    background-color: #555;
+}
+
+.selectableText, .chordName {
+    display: block;
+    font-weight: 500;
+}
 </style>
 </head>
 <body>
@@ -134,6 +254,7 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     const [color,degree]=classify(t,baseTriad,scaleNotes);
     const name=nameTriad(t);
     if(!name) return null;
+
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
@@ -145,10 +266,12 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     } else {
         nextRef = chordOnly + '_' + sourceSuffix;
     }
+
     return {triad:t,color,degree,name,source:key+label,nextRef};
   }).filter(Boolean);
   return triads;
 }
+
 // Compute scales
 for(let scaleName in scaleIntervals){
   allTriads[scaleName]={};
@@ -171,7 +294,9 @@ for(let refName in extraTriadRefs){
 }
 
 // ---------------- CREATE PLAY PACKAGE ----------------
-const allPackages = []; // Array of all active packages
+let lastTriadBtn = null;
+let lastColorUsed = null; // <-- store last color globally
+const allPackages = []; // <-- store all packages for live update
 
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
@@ -185,28 +310,34 @@ function createPlayPackage(x=50,y=50){
     <button class="playBtn">Play</button>
   `;
   document.body.appendChild(container);
+  allPackages.push(container); // <-- add to global list
 
   const scaleSelect=container.querySelector('.scaleSelect');
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
 
-  // --- Inherit from previous package if exists ---
-  if(allPackages.length>0){
-    const prev = allPackages[allPackages.length-1];
-    scaleSelect.value = prev.scaleSelect.value;
-    keySelect.value = prev.keySelect.value;
-    colorSelect.value = prev.colorSelect.value;
+  // Inherit key, scale, and color
+  if(lastTriadBtn){
+    const prevChordName = lastTriadBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
+    if(prevChordName){
+      const rootMatch = prevChordName.match(/^([A-G]#?)/);
+      if(rootMatch) keySelect.value = rootMatch[1];
+      const nextRef = lastTriadBtn.dataset.nextRef;
+      if(nextRef && allTriads[nextRef]) scaleSelect.value = nextRef;
+    }
+    if(lastColorUsed) colorSelect.value = lastColorUsed;
   }
-
-  allPackages.push({container, scaleSelect, keySelect, colorSelect, triadBtn});
 
   let currentIndex=0;
 
-  function updateTriad(propagate=true){
+  function updateTriadForContainer(pkgContainer){
     const scale=scaleSelect.value;
     const key=keySelect.value;
     const color=colorSelect.value;
+    const triadBtn=pkgContainer.querySelector('.triadBtn');
+    const playBtn=pkgContainer.querySelector('.playBtn');
+
     const list=allTriads[scale][key].filter(t=>t.color===color);
     if(list.length===0){
       triadBtn.querySelector('.selectableText').textContent='';
@@ -223,7 +354,6 @@ function createPlayPackage(x=50,y=50){
 
     triadBtn.style.background=colorMap[color];
     triadBtn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
-    const playBtn=container.querySelector('.playBtn');
     playBtn.style.background=colorMap[color];
     playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
     if(color==='BLACK'){
@@ -236,46 +366,20 @@ function createPlayPackage(x=50,y=50){
       playBtn.style.color='#000';
     }
 
-    // --- Propagate to subsequent packages ---
-    if(propagate){
-      const index = allPackages.findIndex(p=>p.container===container);
-      for(let i=index+1;i<allPackages.length;i++){
-        const nextPkg = allPackages[i];
-        nextPkg.scaleSelect.value = scaleSelect.value;
-        nextPkg.keySelect.value = keySelect.value;
-        nextPkg.colorSelect.value = colorSelect.value;
-        nextPkg.triadBtn.dataset.currentIndex = 0;
-        nextPkg.triadBtn.dataset.nextRef = '';
-        nextPkg.currentIndex = 0;
-        nextPkg.triadBtn.querySelector('.selectableText').textContent = '';
-        nextPkg.triadBtn.querySelector('.chordName').textContent = '';
-        updatePackage(nextPkg); // update display
-      }
-    }
+    lastTriadBtn = triadBtn;
+    lastColorUsed = color;
   }
 
-  function updatePackage(pkg){
-    const scale=pkg.scaleSelect.value;
-    const key=pkg.keySelect.value;
-    const color=pkg.colorSelect.value;
-    const list=allTriads[scale][key].filter(t=>t.color===color);
-    if(list.length===0) return;
-    const idx = pkg.triadBtn.dataset.currentIndex || 0;
-    const t=list[idx];
-    pkg.triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
-    pkg.triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
-    pkg.triadBtn.style.background=colorMap[color];
-    pkg.triadBtn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
-    const playBtn=pkg.container.querySelector('.playBtn');
-    playBtn.style.background=colorMap[color];
-    playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
+  function updateAllPackages(){
+    allPackages.forEach(pkg=>updateTriadForContainer(pkg));
   }
 
-  scaleSelect.onchange=()=>updateTriad();
-  keySelect.onchange=()=>updateTriad();
-  colorSelect.onchange=()=>updateTriad();
-  container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateTriad();};
-  container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateTriad();};
+  scaleSelect.onchange=()=>{currentIndex=0; updateAllPackages();};
+  keySelect.onchange=()=>{currentIndex=0; updateAllPackages();};
+  colorSelect.onchange=()=>{currentIndex=0; updateAllPackages();};
+
+  container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateAllPackages();};
+  container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateAllPackages();};
   container.querySelector('.playBtn').onclick=()=>{ 
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
@@ -284,14 +388,14 @@ function createPlayPackage(x=50,y=50){
   // --- DELETE BUTTON ---
   const deleteBtn = container.querySelector('.deletePackage');
   const deleteHandler = ()=>{
-    const idx = allPackages.findIndex(p=>p.container===container);
+    const idx = allPackages.indexOf(container);
     if(idx>-1) allPackages.splice(idx,1);
     container.remove();
   };
   deleteBtn.addEventListener('click', deleteHandler);
   deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
 
-  // --- DRAG ---
+  // --- TOUCH DRAG ---
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
   function startDrag(e){dragging=true; const ev = e.touches?e.touches[0]:e; offsetX=ev.clientX-container.offsetLeft; offsetY=ev.clientY-container.offsetTop; e.preventDefault();}
@@ -301,7 +405,7 @@ function createPlayPackage(x=50,y=50){
   window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
   window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
 
-  updateTriad();
+  updateTriadForContainer(container);
 }
 
 // ---------------- INSERT BUTTON ----------------
