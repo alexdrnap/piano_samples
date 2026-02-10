@@ -10,13 +10,13 @@ button, select { cursor: pointer; }
 button.colorBtn { display: flex; flex-direction: column; align-items: center; min-width: 120px; padding: 5px; margin: 3px; }
 button .chordName { font-size: 0.7em; color: #333; }
 .selectableText { user-select: text; cursor: text; }
-.playPackage { position: absolute; border: 1px solid #888; padding: 5px; background: #f9f9f9; width: 150px; z-index: 1000; }
-.packageHeader { display: flex; justify-content: space-between; align-items: center; cursor: move; background: #ddd; padding: 2px 5px; }
-.navButtons { display: flex; justify-content: center; margin: 3px 0; }
+.playPackage { position: absolute; border: 1px solid #888; padding: 10px; background: #f9f9f9; width: 220px; z-index: 1000; box-sizing: border-box; border-radius: 6px; }
+.packageHeader { display: flex; justify-content: space-between; align-items: center; cursor: move; background: #ddd; padding: 5px 8px; border-radius: 4px; }
+.navButtons { display: flex; justify-content: center; margin: 5px 0; }
 .navButtons button { margin: 0 2px; }
-.triadBtn, .playBtn { width: 100%; margin: 3px 0; height: 40px; font-size: 0.9em; color:#000; }
+.triadBtn, .playBtn { width: 100%; margin: 5px 0; height: 50px; font-size: 0.9em; color:#000; padding: 3px; text-align: center; }
 .triadBtn.blackBtn, .playBtn.blackBtn { color: white; }
-.deletePackage { background:red; color:white; border:none; cursor:pointer; padding:0 5px; }
+.deletePackage { background:red; color:white; border:none; cursor:pointer; padding:0 5px; border-radius:3px; }
 </style>
 </head>
 <body>
@@ -60,7 +60,6 @@ const extraTriadRefs = {
 };
 
 // --- Color map ---
-// BASE (green) is first in dropdown
 const colorMap={BASE:'#00AA00',RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
 const colorOrder = ['BASE','RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
 
@@ -183,24 +182,34 @@ for(let refName in extraTriadRefs){
 }
 
 // ---------------- Module 5: Play Package ----------------
+let lastPackageSettings={key:'C', scale:'major'}; // to inherit key/scale
+
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
   container.innerHTML=`
     <div class="packageHeader"><span>Play Package</span><button class="deletePackage">X</button></div>
-    <select class="scaleSelect">${Object.keys(allTriads).map(s=>`<option value="${s}">${s}</option>`)}</select>
-    <select class="keySelect">${noteOrder.map(n=>`<option value="${n}">${n}</option>`)}</select>
-    <select class="colorSelect">${colorOrder.map(c=>`<option value="${c}">${c}</option>`)}</select>
+    <select class="scaleSelect">${Object.keys(allTriads).map(s=>`<option value="${s}">${s}</option>`)</select>
+    <select class="keySelect">${noteOrder.map(n=>`<option value="${n}">${n}</option>`)</select>
+    <select class="colorSelect">${colorOrder.map(c=>`<option value="${c}">${c}</option>`)</select>
     <button class="triadBtn"><span class="selectableText"></span><span class="chordName"></span></button>
     <div class="navButtons"><button class="prevBtn">◀</button><button class="nextBtn">▶</button></div>
     <button class="playBtn">Play</button>
   `;
   document.body.appendChild(container);
 
+  // --- inherit previous key & major/minor ---
+  const keySelect=container.querySelector('.keySelect');
+  const scaleSelect=container.querySelector('.scaleSelect');
+  keySelect.value = lastPackageSettings.key;
+  scaleSelect.value = lastPackageSettings.scale;
+
   let currentIndex=0;
   function updateTriad(){ 
-    const scale=container.querySelector('.scaleSelect').value;
-    const key=container.querySelector('.keySelect').value;
+    const scale=scaleSelect.value;
+    const key=keySelect.value;
     const color=container.querySelector('.colorSelect').value;
+    lastPackageSettings={key, scale}; // update lastPackage
+
     const list=allTriads[scale][key].filter(t=>t.color===color);
     if(list.length===0){ 
       container.querySelector('.triadBtn .selectableText').textContent=''; 
@@ -230,8 +239,8 @@ function createPlayPackage(x=50,y=50){
     }
   }
 
-  container.querySelector('.scaleSelect').onchange=()=>{currentIndex=0; updateTriad();};
-  container.querySelector('.keySelect').onchange=()=>{currentIndex=0; updateTriad();};
+  scaleSelect.onchange=()=>{currentIndex=0; updateTriad();};
+  keySelect.onchange=()=>{currentIndex=0; updateTriad();};
   container.querySelector('.colorSelect').onchange=()=>{currentIndex=0; updateTriad();};
   container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateTriad();};
   container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateTriad();};
@@ -241,15 +250,23 @@ function createPlayPackage(x=50,y=50){
   };
   container.querySelector('.deletePackage').onclick=()=>container.remove();
 
-  // Dragging per package
+  // Dragging per package (mouse + touch)
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
-  header.addEventListener('mousedown', e=>{
-    dragging=true; offsetX=e.clientX-container.offsetLeft; offsetY=e.clientY-container.offsetTop;
-    e.preventDefault();
-  });
+
+  function startDrag(x, y){
+    dragging=true; offsetX=x-container.offsetLeft; offsetY=y-container.offsetTop;
+  }
+  function doDrag(x, y){
+    if(dragging){ container.style.left=(x-offsetX)+'px'; container.style.top=(y-offsetY)+'px'; }
+  }
+
+  header.addEventListener('mousedown', e=>{ startDrag(e.clientX,e.clientY); e.preventDefault(); });
+  header.addEventListener('touchstart', e=>{ startDrag(e.touches[0].clientX,e.touches[0].clientY); e.preventDefault(); });
   document.addEventListener('mouseup', ()=>dragging=false);
-  document.addEventListener('mousemove', e=>{ if(dragging){ container.style.left=(e.clientX-offsetX)+'px'; container.style.top=(e.clientY-offsetY)+'px'; }});
+  document.addEventListener('touchend', ()=>dragging=false);
+  document.addEventListener('mousemove', e=>{ doDrag(e.clientX,e.clientY); });
+  document.addEventListener('touchmove', e=>{ doDrag(e.touches[0].clientX,e.touches[0].clientY); e.preventDefault(); });
 
   updateTriad();
 }
@@ -259,4 +276,3 @@ document.getElementById('insertPackageBtn').onclick=()=>createPlayPackage();
 </script>
 </body>
 </html>
-
