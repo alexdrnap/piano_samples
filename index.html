@@ -296,7 +296,6 @@ for(let refName in extraTriadRefs){
 // ---------------- CREATE PLAY PACKAGE ----------------
 let lastTriadBtn = null;
 let lastColorUsed = null; // <-- store last color globally
-const allPackages = []; // <-- store all packages for live update
 
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
@@ -310,14 +309,13 @@ function createPlayPackage(x=50,y=50){
     <button class="playBtn">Play</button>
   `;
   document.body.appendChild(container);
-  allPackages.push(container); // <-- add to global list
 
   const scaleSelect=container.querySelector('.scaleSelect');
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
 
-  // Inherit key, scale, and color
+  // Inherit key, scale, and now color
   if(lastTriadBtn){
     const prevChordName = lastTriadBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
     if(prevChordName){
@@ -330,14 +328,10 @@ function createPlayPackage(x=50,y=50){
   }
 
   let currentIndex=0;
-
-  function updateTriadForContainer(pkgContainer){
+  function updateTriad(){
     const scale=scaleSelect.value;
     const key=keySelect.value;
     const color=colorSelect.value;
-    const triadBtn=pkgContainer.querySelector('.triadBtn');
-    const playBtn=pkgContainer.querySelector('.playBtn');
-
     const list=allTriads[scale][key].filter(t=>t.color===color);
     if(list.length===0){
       triadBtn.querySelector('.selectableText').textContent='';
@@ -354,6 +348,7 @@ function createPlayPackage(x=50,y=50){
 
     triadBtn.style.background=colorMap[color];
     triadBtn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
+    const playBtn=container.querySelector('.playBtn');
     playBtn.style.background=colorMap[color];
     playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
     if(color==='BLACK'){
@@ -367,31 +362,22 @@ function createPlayPackage(x=50,y=50){
     }
 
     lastTriadBtn = triadBtn;
-    lastColorUsed = color;
+    lastColorUsed = color; // <-- update last color
   }
 
-  function updateAllPackages(){
-    allPackages.forEach(pkg=>updateTriadForContainer(pkg));
-  }
-
-  scaleSelect.onchange=()=>{currentIndex=0; updateAllPackages();};
-  keySelect.onchange=()=>{currentIndex=0; updateAllPackages();};
-  colorSelect.onchange=()=>{currentIndex=0; updateAllPackages();};
-
-  container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateAllPackages();};
-  container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateAllPackages();};
+  scaleSelect.onchange=()=>{currentIndex=0; updateTriad();};
+  keySelect.onchange=()=>{currentIndex=0; updateTriad();};
+  colorSelect.onchange=()=>{currentIndex=0; updateTriad();};
+  container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateTriad();};
+  container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateTriad();};
   container.querySelector('.playBtn').onclick=()=>{ 
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
 
-  // --- DELETE BUTTON ---
+  // --- DELETE BUTTON FIX FOR TOUCH ---
   const deleteBtn = container.querySelector('.deletePackage');
-  const deleteHandler = ()=>{
-    const idx = allPackages.indexOf(container);
-    if(idx>-1) allPackages.splice(idx,1);
-    container.remove();
-  };
+  const deleteHandler = ()=>container.remove();
   deleteBtn.addEventListener('click', deleteHandler);
   deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
 
@@ -405,7 +391,7 @@ function createPlayPackage(x=50,y=50){
   window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
   window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
 
-  updateTriadForContainer(container);
+  updateTriad();
 }
 
 // ---------------- INSERT BUTTON ----------------
@@ -413,3 +399,4 @@ document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20
 </script>
 </body>
 </html>
+
