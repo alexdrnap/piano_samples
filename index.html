@@ -224,7 +224,7 @@ function generateTriads(base){
   for(let i=0;i<3;i++) for(let s of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s); results.add(tri.join(',')); }
   for(let i=0;i<2;i++) for(let j=i+1;j<3;j++) for(let s1 of semis) for(let s2 of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(',')); }
   for(let s1 of semis) for(let s2 of semis) for(let s3 of semis){ let tri=[transpose(base[0],s1),transpose(base[1],s2),transpose(base[2],s3)]; results.add(tri.join(',')); }
-  return Array.from(results).map(r=>r.split(','));
+  return Array.from(results).map(r=>r.split(',')); 
 }
 
 // ---------------- PLAYBACK ----------------
@@ -371,7 +371,12 @@ function createPlayPackage(x=50,y=50){
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
-  container.querySelector('.deletePackage').onclick=()=>container.remove();
+
+  // --- DELETE BUTTON FIX FOR TOUCH ---
+  const deleteBtn = container.querySelector('.deletePackage');
+  const deleteHandler = ()=>container.remove();
+  deleteBtn.addEventListener('click', deleteHandler);
+  deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
 
   // --- TOUCH DRAG ---
   const header=container.querySelector('.packageHeader');
@@ -391,4 +396,3 @@ document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20
 </script>
 </body>
 </html>
-
