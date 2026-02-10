@@ -295,12 +295,16 @@ for(let refName in extraTriadRefs){
 
 // ---------------- CREATE PLAY PACKAGE ----------------
 let lastTriadBtn = null;
-let lastColorUsed = null; // <-- store last color globally
+let lastColorUsed = null;
+let packageCounter = 0; 
+const allPackages = [];
 
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
+  packageCounter++;
+  container.dataset.packageIndex = packageCounter-1; // zero-based index
   container.innerHTML=`
-    <div class="packageHeader"><span>Play Package</span><button class="deletePackage">X</button></div>
+    <div class="packageHeader"><span>Play Package ${packageCounter}</span><button class="deletePackage">X</button></div>
     <select class="scaleSelect">${Object.keys(allTriads).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
     <select class="keySelect">${noteOrder.map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
     <select class="colorSelect">${colorOrder.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
@@ -309,19 +313,22 @@ function createPlayPackage(x=50,y=50){
     <button class="playBtn">Play</button>
   `;
   document.body.appendChild(container);
+  allPackages.push(container);
 
   const scaleSelect=container.querySelector('.scaleSelect');
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
 
-  // Inherit key, scale, and now color
-  if(lastTriadBtn){
-    const prevChordName = lastTriadBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
+  // --- inheritance from previous package ---
+  const prevPackage = allPackages[allPackages.length-2];
+  if(prevPackage){
+    const prevTriadBtn = prevPackage.querySelector('.triadBtn');
+    const prevChordName = prevTriadBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
     if(prevChordName){
       const rootMatch = prevChordName.match(/^([A-G]#?)/);
       if(rootMatch) keySelect.value = rootMatch[1];
-      const nextRef = lastTriadBtn.dataset.nextRef;
+      const nextRef = prevTriadBtn.dataset.nextRef;
       if(nextRef && allTriads[nextRef]) scaleSelect.value = nextRef;
     }
     if(lastColorUsed) colorSelect.value = lastColorUsed;
@@ -362,7 +369,27 @@ function createPlayPackage(x=50,y=50){
     }
 
     lastTriadBtn = triadBtn;
-    lastColorUsed = color; // <-- update last color
+    lastColorUsed = color;
+
+    // propagate changes to subsequent packages
+    const myIndex = allPackages.indexOf(container);
+    for(let i=myIndex+1;i<allPackages.length;i++){
+      const nextPkg = allPackages[i];
+      const prevPkgBtn = allPackages[i-1].querySelector('.triadBtn');
+      const nextScaleSelect = nextPkg.querySelector('.scaleSelect');
+      const nextKeySelect = nextPkg.querySelector('.keySelect');
+      const nextColorSelect = nextPkg.querySelector('.colorSelect');
+
+      const prevChordName = prevPkgBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
+      if(prevChordName){
+        const rootMatch = prevChordName.match(/^([A-G]#?)/);
+        if(rootMatch) nextKeySelect.value = rootMatch[1];
+        const nextRef = prevPkgBtn.dataset.nextRef;
+        if(nextRef && allTriads[nextRef]) nextScaleSelect.value = nextRef;
+      }
+      nextColorSelect.value = prevPkgBtn.style.background ? colorOrder.find(c=>colorMap[c]===prevPkgBtn.style.background) || colorOrder[0] : colorOrder[0];
+      nextPkg.querySelector('.prevBtn').click(); // force update
+    }
   }
 
   scaleSelect.onchange=()=>{currentIndex=0; updateTriad();};
@@ -375,9 +402,18 @@ function createPlayPackage(x=50,y=50){
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
 
-  // --- DELETE BUTTON FIX FOR TOUCH ---
+  // --- DELETE BUTTON ---
   const deleteBtn = container.querySelector('.deletePackage');
-  const deleteHandler = ()=>container.remove();
+  const deleteHandler = ()=>{
+    const idx = allPackages.indexOf(container);
+    allPackages.splice(idx,1);
+    container.remove();
+    // update numbering
+    for(let i=0;i<allPackages.length;i++){
+      const pkg = allPackages[i];
+      pkg.querySelector('.packageHeader span').textContent = `Play Package ${i+1}`;
+    }
+  };
   deleteBtn.addEventListener('click', deleteHandler);
   deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
 
@@ -399,4 +435,3 @@ document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20
 </script>
 </body>
 </html>
-
