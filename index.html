@@ -13,27 +13,136 @@ body {
     background-color: #1e1e1e;
     color: #eee;
 }
-h2 { text-align: center; color: #fff; }
+
+h2 {
+    text-align: center;
+    color: #fff;
+}
+
 /* ---------- SELECTS & BUTTONS ---------- */
-button, select { cursor: pointer; font-size: 0.95em; border: none; border-radius: 6px; outline: none; }
-select { padding: 6px 10px; margin: 0 5px 10px 0; background-color: #333; color: #eee; }
-.colorSelect { width: 100%; padding: 6px 10px; margin: 0 0 10px 0; background-color: #333; color: #eee; border-radius: 6px; box-sizing: border-box; }
-button { padding: 10px; background-color: #444; color: #fff; transition: background 0.2s; }
-button:hover { background-color: #555; }
+button, select {
+    cursor: pointer;
+    font-size: 0.95em;
+    border: none;
+    border-radius: 6px;
+    outline: none;
+}
+
+select {
+    padding: 6px 10px;
+    margin: 0 5px 10px 0;
+    background-color: #333;
+    color: #eee;
+}
+
+/* ---------- COLOR SELECT WIDER ---------- */
+.colorSelect {
+    width: 100%;
+    padding: 6px 10px;
+    margin: 0 0 10px 0;
+    background-color: #333;
+    color: #eee;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+button {
+    padding: 10px;
+    background-color: #444;
+    color: #fff;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background-color: #555;
+}
+
 /* ---------- PLAY PACKAGE CONTAINER ---------- */
-.playPackage { position: absolute; border: 1px solid #555; padding: 12px; background: #2c2c2c; width: 260px; z-index: 1000; box-sizing: border-box; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-.packageHeader { display: flex; justify-content: space-between; align-items: center; cursor: move; background: #3a3a3a; padding: 8px 10px; border-radius: 8px; user-select: none; }
-.packageHeader span { font-weight: bold; color: #fff; }
-.deletePackage { background: #e74c3c; color: #fff; font-size: 1.2em; padding: 4px 8px; border-radius: 6px; }
+.playPackage {
+    position: absolute;
+    border: 1px solid #555;
+    padding: 12px;
+    background: #2c2c2c;
+    width: 260px;
+    z-index: 1000;
+    box-sizing: border-box;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+/* ---------- PACKAGE HEADER ---------- */
+.packageHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    background: #3a3a3a;
+    padding: 8px 10px;
+    border-radius: 8px;
+    user-select: none;
+}
+
+.packageHeader span {
+    font-weight: bold;
+    color: #fff;
+}
+
+/* ---------- CLOSE BUTTON ---------- */
+.deletePackage {
+    background: #e74c3c;
+    color: #fff;
+    font-size: 1.2em;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
 /* ---------- TRIAD & PLAY BUTTON ---------- */
-.triadBtn, .playBtn { width: 100%; height: 70px; font-size: 0.95em; padding: 5px; text-align: center; border-radius: 8px; transition: transform 0.1s; display: flex; flex-direction: column; justify-content: center; align-items: center; word-break: break-word; }
-.triadBtn:active, .playBtn:active { transform: scale(0.97); }
-.triadBtn.blackBtn, .playBtn.blackBtn { color: #fff; }
+.triadBtn, .playBtn {
+    width: 100%;
+    height: 70px;
+    font-size: 0.95em;
+    padding: 5px;
+    text-align: center;
+    border-radius: 8px;
+    transition: transform 0.1s;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    word-break: break-word;
+}
+
+.triadBtn:active, .playBtn:active {
+    transform: scale(0.97);
+}
+
+.triadBtn.blackBtn, .playBtn.blackBtn {
+    color: #fff;
+}
+
 /* ---------- NAV BUTTONS ---------- */
-.navButtons { display: flex; justify-content: center; margin: 6px 0; }
-.navButtons button { flex: 1; margin: 0 3px; background-color: #444; color: #fff; border-radius: 6px; }
-.navButtons button:hover { background-color: #555; }
-.selectableText, .chordName { display: block; font-weight: 500; }
+.navButtons {
+    display: flex;
+    justify-content: center;
+    margin: 6px 0;
+}
+
+.navButtons button {
+    flex: 1;
+    margin: 0 3px;
+    background-color: #444;
+    color: #fff;
+    border-radius: 6px;
+}
+
+.navButtons button:hover {
+    background-color: #555;
+}
+
+.selectableText, .chordName {
+    display: block;
+    font-weight: 500;
+}
 </style>
 </head>
 <body>
@@ -115,7 +224,7 @@ function generateTriads(base){
   for(let i=0;i<3;i++) for(let s of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s); results.add(tri.join(',')); }
   for(let i=0;i<2;i++) for(let j=i+1;j<3;j++) for(let s1 of semis) for(let s2 of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(',')); }
   for(let s1 of semis) for(let s2 of semis) for(let s3 of semis){ let tri=[transpose(base[0],s1),transpose(base[1],s2),transpose(base[2],s3)]; results.add(tri.join(',')); }
-  return Array.from(results).map(r=>r.split(','));
+  return Array.from(results).map(r=>r.split(',')); 
 }
 
 // ---------------- PLAYBACK ----------------
@@ -150,7 +259,9 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
+    // Determine suffix from current row's Source column
     let sourceSuffix = (key+label).endsWith('maj') ? 'maj' : 'min';
+
     if(['major','minor','dim','aug','sus2','sus4'].includes(chordOnly)){
         if(chordOnly==='major') nextRef='major';
         else if(chordOnly==='minor') nextRef='naturalMinor';
@@ -205,7 +316,6 @@ function createPlayPackage(x=50,y=50){
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
 
-  // Inherit previous package values if exists
   if(lastTriadBtn){
     const prevChordName = lastTriadBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
     if(prevChordName){
@@ -261,41 +371,22 @@ function createPlayPackage(x=50,y=50){
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
-  container.querySelector('.deletePackage').onclick=()=>container.remove();
 
-  // --- TOUCH + MOUSE DRAG ---
-  const header = container.querySelector('.packageHeader');
-  let offsetX=0, offsetY=0, dragging=false, touchId=null;
+  // --- DELETE BUTTON FIX FOR TOUCH ---
+  const deleteBtn = container.querySelector('.deletePackage');
+  const deleteHandler = ()=>container.remove();
+  deleteBtn.addEventListener('click', deleteHandler);
+  deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
 
-  function startDrag(e) {
-    const ev = e.touches ? e.touches[0] : e;
-    if (dragging) return;
-    dragging = true;
-    touchId = ev.identifier || null;
-    offsetX = ev.clientX - container.offsetLeft;
-    offsetY = ev.clientY - container.offsetTop;
-    container.classList.add('dragging');
-    e.preventDefault();
-  }
-  function drag(e) {
-    if (!dragging) return;
-    let ev;
-    if (e.touches) {
-      for (let t of e.touches) if (t.identifier === touchId) { ev = t; break; }
-      if (!ev) return;
-    } else { ev = e; }
-    container.style.left = (ev.clientX - offsetX)+'px';
-    container.style.top = (ev.clientY - offsetY)+'px';
-  }
-  function stopDrag(e){ if(!dragging) return; dragging=false; touchId=null; container.classList.remove('dragging'); }
-
-  header.addEventListener('mousedown', startDrag);
-  window.addEventListener('mousemove', drag);
-  window.addEventListener('mouseup', stopDrag);
-  header.addEventListener('touchstart', startDrag);
-  window.addEventListener('touchmove', drag, { passive: false });
-  window.addEventListener('touchend', stopDrag);
-  window.addEventListener('touchcancel', stopDrag);
+  // --- TOUCH DRAG ---
+  const header=container.querySelector('.packageHeader');
+  let offsetX=0, offsetY=0, dragging=false;
+  function startDrag(e){dragging=true; const ev = e.touches?e.touches[0]:e; offsetX=ev.clientX-container.offsetLeft; offsetY=ev.clientY-container.offsetTop; e.preventDefault();}
+  function drag(e){ if(!dragging) return; const ev = e.touches?e.touches[0]:e; container.style.left=(ev.clientX-offsetX)+'px'; container.style.top=(ev.clientY-offsetY)+'px'; }
+  function stopDrag(){dragging=false;}
+  header.addEventListener('mousedown',startDrag); header.addEventListener('touchstart',startDrag);
+  window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
+  window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
 
   updateTriad();
 }
@@ -305,3 +396,4 @@ document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20
 </script>
 </body>
 </html>
+
