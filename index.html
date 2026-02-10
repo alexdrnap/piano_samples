@@ -152,8 +152,6 @@ async function playChord(triad){
 
 // ---------------- Module 4: Precompute all keys and 20 scales ----------------
 const allTriads={};
-
-// Function to compute reference triads for a base triad + related scale
 function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
   const triads=generateTriads(baseTriad).map(t=>{
     const [color,degree]=classify(t,baseTriad,scaleNotes);
@@ -173,8 +171,6 @@ for(let scaleName in scaleIntervals){
     allTriads[scaleName][root]=computeRefTriads(baseTriad, scaleName, root, scaleNotes, keyAbbr[scaleName]);
   }
 }
-
-// Extra triad references
 for(let refName in extraTriadRefs){
   const baseTriadOffsets = extraTriadRefs[refName];
   const scaleRel = refName.includes('_maj')?'major':'naturalMinor';
@@ -206,7 +202,11 @@ function createPlayPackage(x=50,y=50){
     const key=container.querySelector('.keySelect').value;
     const color=container.querySelector('.colorSelect').value;
     const list=allTriads[scale][key].filter(t=>t.color===color);
-    if(list.length===0){ container.querySelector('.triadBtn .selectableText').textContent=''; container.querySelector('.chordName').textContent=''; return; }
+    if(list.length===0){ 
+      container.querySelector('.triadBtn .selectableText').textContent=''; 
+      container.querySelector('.chordName').textContent=''; 
+      return; 
+    }
     currentIndex=(currentIndex+list.length)%list.length;
     const t=list[currentIndex];
     const btn=container.querySelector('.triadBtn');
@@ -217,6 +217,17 @@ function createPlayPackage(x=50,y=50){
     const playBtn=container.querySelector('.playBtn');
     playBtn.style.background=colorMap[color];
     playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
+
+    // ---- FORCE text inside black buttons to white ----
+    if(color==='BLACK'){
+        btn.querySelector('.chordName').style.color='white';
+        btn.querySelector('.selectableText').style.color='white';
+        playBtn.style.color='white';
+    } else {
+        btn.querySelector('.chordName').style.color='#333';
+        btn.querySelector('.selectableText').style.color='#000';
+        playBtn.style.color='#000';
+    }
   }
 
   container.querySelector('.scaleSelect').onchange=()=>{currentIndex=0; updateTriad();};
