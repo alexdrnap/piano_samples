@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chord Familiarity Generator - Play Packages</title>
 <style>
+/* ---------- GENERAL STYLES ---------- */
 body {
     font-family: 'Segoe UI', sans-serif;
     padding: 10px;
@@ -18,6 +19,7 @@ h2 {
     color: #fff;
 }
 
+/* ---------- SELECTS & BUTTONS ---------- */
 button, select {
     cursor: pointer;
     font-size: 0.95em;
@@ -33,6 +35,7 @@ select {
     color: #eee;
 }
 
+/* ---------- COLOR SELECT WIDER ---------- */
 .colorSelect {
     width: 100%;
     padding: 6px 10px;
@@ -54,6 +57,7 @@ button:hover {
     background-color: #555;
 }
 
+/* ---------- PLAY PACKAGE CONTAINER ---------- */
 .playPackage {
     position: absolute;
     border: 1px solid #555;
@@ -66,6 +70,7 @@ button:hover {
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
 }
 
+/* ---------- PACKAGE HEADER ---------- */
 .packageHeader {
     display: flex;
     justify-content: space-between;
@@ -77,11 +82,7 @@ button:hover {
     user-select: none;
 }
 
-.packageHeader span {
-    font-weight: bold;
-    color: #fff;
-}
-
+/* ---------- CLOSE BUTTON ---------- */
 .deletePackage {
     background: #e74c3c;
     color: #fff;
@@ -90,6 +91,7 @@ button:hover {
     border-radius: 6px;
 }
 
+/* ---------- TRIAD & PLAY BUTTON ---------- */
 .triadBtn, .playBtn {
     width: 100%;
     height: 70px;
@@ -101,7 +103,6 @@ button:hover {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    word-break: break-word;
 }
 
 .triadBtn.blackBtn, .playBtn.blackBtn {
@@ -134,12 +135,11 @@ button:hover {
   <option value="piano">Piano</option>
   <option value="AMSynth">AMSynth</option>
 </select>
-
 <button id="insertPackageBtn">INSERT PLAY PACKAGE</button>
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
-// ---------------- DATA (UNCHANGED) ----------------
+// ---------------- DATA ----------------
 const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const scaleIntervals={major:[0,2,4,5,7,9,11],naturalMinor:[0,2,3,5,7,8,10],harmonicMinor:[0,2,3,5,7,8,11],melodicMinor:[0,2,3,5,7,9,11]};
 const baseTriadIntervals={major:[0,4,7],naturalMinor:[0,3,7],harmonicMinor:[0,3,7],melodicMinor:[0,3,7]};
@@ -161,54 +161,52 @@ function createPlayPackage(x=50,y=50){
       <span>Play Package</span>
       <button class="deletePackage">X</button>
     </div>
-    <select class="scaleSelect"><option>major</option></select>
+    <select class="scaleSelect">${Object.keys(scaleIntervals).map(s=>`<option>${s}</option>`).join('')}</select>
     <select class="keySelect">${noteOrder.map(n=>`<option>${n}</option>`).join('')}</select>
     <select class="colorSelect">${colorOrder.map(c=>`<option>${c}</option>`).join('')}</select>
     <button class="triadBtn"><span class="selectableText"></span><span class="chordName"></span></button>
-    <div class="navButtons"><button>◀</button><button>▶</button></div>
+    <div class="navButtons"><button class="prevBtn">◀</button><button class="nextBtn">▶</button></div>
     <button class="playBtn">Play</button>
   `;
-
   document.body.appendChild(container);
 
-  // ---------- DELETE BUTTON FIX ----------
+  // ---- FIX: make X clickable on mobile ----
   const deleteBtn = container.querySelector('.deletePackage');
-  deleteBtn.addEventListener('click', () => container.remove());
   deleteBtn.addEventListener('touchstart', e => e.stopPropagation());
+  deleteBtn.addEventListener('mousedown', e => e.stopPropagation());
+  deleteBtn.onclick = () => container.remove();
 
-  // ---------- DRAG FIX ----------
-  const header = container.querySelector('.packageHeader');
+  // ---- DRAG LOGIC ----
+  const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
 
   function startDrag(e){
-    if (e.target.classList.contains('deletePackage')) return;
-
+    if(e.target.classList.contains('deletePackage')) return;
     dragging=true;
     const ev=e.touches?e.touches[0]:e;
     offsetX=ev.clientX-container.offsetLeft;
     offsetY=ev.clientY-container.offsetTop;
     e.preventDefault();
   }
-
   function drag(e){
     if(!dragging) return;
     const ev=e.touches?e.touches[0]:e;
     container.style.left=(ev.clientX-offsetX)+'px';
     container.style.top=(ev.clientY-offsetY)+'px';
   }
-
   function stopDrag(){dragging=false;}
 
   header.addEventListener('mousedown',startDrag);
-  header.addEventListener('touchstart',startDrag,{passive:false});
+  header.addEventListener('touchstart',startDrag);
   window.addEventListener('mousemove',drag);
-  window.addEventListener('touchmove',drag,{passive:false});
+  window.addEventListener('touchmove',drag);
   window.addEventListener('mouseup',stopDrag);
   window.addEventListener('touchend',stopDrag);
 }
 
+// ---------------- INSERT ----------------
 document.getElementById('insertPackageBtn').onclick=()=>{
-  createPlayPackage(50+20*Math.random(),50+20*Math.random());
+  createPlayPackage(60+Math.random()*20,60+Math.random()*20);
 };
 </script>
 </body>
