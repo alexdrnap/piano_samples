@@ -1,229 +1,284 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chord Familiarity Generator</title>
-
-<script src="https://unpkg.com/tone@latest"></script>
+<meta charset="UTF-8" />
+<title>Play Packages</title>
+<script src="https://unpkg.com/tone@14.8.39/build/Tone.js"></script>
 
 <style>
-body { font-family: sans-serif; padding: 10px; }
-button, select { cursor: pointer; }
+body {
+  background:#111;
+  color:white;
+  font-family:Arial, sans-serif;
+  margin:0;
+  padding:10px;
+}
+
+button, select {
+  background:black;
+  color:white;
+  border:1px solid #555;
+  padding:6px;
+  margin:3px;
+}
+
 .playPackage {
-  position: absolute;
-  border: 1px solid #888;
-  padding: 5px;
-  background: #f9f9f9;
-  width: 170px;
+  position:absolute;
+  background:#222;
+  border:1px solid #555;
+  padding:8px;
+  border-radius:6px;
+  width:210px;
+  touch-action:none;
 }
-.packageHeader {
-  display: flex;
-  justify-content: space-between;
-  background: #ddd;
-  cursor: move;
-  padding: 2px 5px;
-}
+
 .triadBtn, .playBtn {
-  width: 100%;
-  height: 40px;
-  margin: 3px 0;
+  width:100%;
+  height:42px;
+  font-weight:bold;
 }
-.blackBtn { color: white; }
-.chordName { font-size: 0.7em; }
-.navButtons { display: flex; justify-content: center; }
-.deletePackage {
-  background: red;
-  color: white;
-  border: none;
+
+.playBtn {
+  font-size:18px;
+}
+
+.deleteBtn {
+  position:absolute;
+  top:4px;
+  right:6px;
+  cursor:pointer;
+  color:#f66;
+}
+
+#topBar {
+  position:fixed;
+  top:5px;
+  left:5px;
+  background:#000;
+  padding:6px;
+  z-index:999;
 }
 </style>
 </head>
 
 <body>
 
-<select id="soundSelectGlobal">
-  <option value="piano">Piano</option>
-  <option value="AMSynth">AMSynth</option>
-</select>
-
-<button id="insertPackageBtn">INSERT PLAY PACKAGE</button>
+<div id="topBar">
+  <select id="soundSelect">
+    <option value="piano">Piano</option>
+    <option value="amsynth">AMSynth</option>
+  </select>
+  <button id="insertBtn">INSERT PLAY PACKAGE</button>
+</div>
 
 <script>
-// ------------------ DATA ------------------
-const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const scaleIntervals={
-  major:[0,2,4,5,7,9,11],
-  naturalMinor:[0,2,3,5,7,8,10],
-  harmonicMinor:[0,2,3,5,7,8,11],
-  melodicMinor:[0,2,3,5,7,9,11]
+/* ---------------- DATA ---------------- */
+
+const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+const COLORS = [
+  {name:'BASE', color:'#00aa55'},
+  {name:'RED', color:'#cc3333'},
+  {name:'ORANGE', color:'#cc7733'},
+  {name:'YELLOW', color:'#cccc33'},
+  {name:'BLUE', color:'#3366cc'},
+  {name:'INDIGO', color:'#4444aa'},
+  {name:'VIOLET', color:'#7733aa'},
+  {name:'PINK', color:'#cc3399'},
+  {name:'GRAY', color:'#777'}
+];
+
+const allTriads = {
+  major:      [[0,4,7]],
+  naturalMinor:[[0,3,7]],
+  melodicMinor:[[0,3,7]],
+  harmonicMinor:[[0,3,7]],
+
+  sus2_maj:[[0,2,7]], sus2_min:[[0,2,7]],
+  sus4_maj:[[0,5,7]], sus4_min:[[0,5,7]],
+  dim_maj:[[0,3,6]],  dim_min:[[0,3,6]],
+  aug_maj:[[0,4,8]],  aug_min:[[0,4,8]],
+
+  '7_3Tm_maj':[[0,2,6]],
+  '7_3Tm_min':[[0,2,6]],
+  '1/2dim_3TM_maj':[[0,4,6]],
+  '1/2dim_3TM_min':[[0,4,6]],
+  '1/2dim_4m_maj':[[0,2,5]],
+  '1/2dim_4m_min':[[0,2,5]],
+  '7_4M_maj':[[0,3,5]],
+  '7_4M_min':[[0,3,5]]
 };
-const baseTriadIntervals={
-  major:[0,4,7],
-  naturalMinor:[0,3,7],
-  harmonicMinor:[0,3,7],
-  melodicMinor:[0,3,7]
-};
-const keyAbbr={major:'maj',naturalMinor:'min',harmonicMinor:'harmMin',melodicMinor:'melMin'};
 
-const extraTriadRefs={
-  'sus2_maj':[0,2,7],'sus2_min':[0,2,7],
-  'sus4_maj':[0,5,7],'sus4_min':[0,5,7],
-  'dim_maj':[0,3,6],'dim_min':[0,3,6],
-  'aug_maj':[0,4,8],'aug_min':[0,4,8],
-  '7_3Tm_maj':[0,2,6],'7_3Tm_min':[0,2,6],
-  '1/2dim_3TM_maj':[0,4,6],'1/2dim_3TM_min':[0,4,6],
-  '1/2dim_4m_maj':[0,2,5],'1/2dim_4m_min':[0,2,5],
-  '7_4M_maj':[0,3,5],'7_4M_min':[0,3,5]
+/* ---------------- SOUND ---------------- */
+
+let synth = new Tone.PolySynth(Tone.Synth).toDestination();
+
+document.getElementById('soundSelect').onchange = e => {
+  synth.dispose();
+  synth = e.target.value === 'amsynth'
+    ? new Tone.PolySynth(Tone.AMSynth).toDestination()
+    : new Tone.PolySynth(Tone.Synth).toDestination();
 };
 
-const colorMap={
-  BASE:'#00AA00',RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',
-  YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',
-  "LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'
-};
-const colorOrder=['BASE','RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
+/* ---------------- STATE ---------------- */
 
-let lastPackageInfo=null;
+let lastPackageInfo = { key:'C', scale:'major' };
+let pkgCount = 0;
 
-// ------------------ UTILS ------------------
-const noteIndex=n=>noteOrder.indexOf(n);
-const transpose=(n,s)=>noteOrder[(noteIndex(n)+s+12)%12];
+/* ---------------- HELPERS ---------------- */
 
-function classify(triad,base,scale){
-  if(triad.join()==base.join()) return ['BASE','1/1'];
-  let s=triad.filter(n=>base.includes(n)).length;
-  let i=triad.filter(n=>scale.includes(n)&&!base.includes(n)).length;
-  let o=3-s-i;
-  if(s==2&&i==1)return['RED',''];
-  if(s==2&&o==1)return['ORANGE',''];
-  if(s==1&&i==2)return['GOLD',''];
-  if(s==1&&i==1&&o==1)return['YELLOW',''];
-  if(s==1&&o==2)return['BLUE',''];
-  if(s==0&&i==3)return['WHITE',''];
-  if(s==0&&i==2)return['LIGHT GREY',''];
-  if(s==0&&i==1)return['DARK GREY',''];
-  return['BLACK',''];
+function noteAt(root, semis){
+  return NOTES[(NOTES.indexOf(root)+semis+12)%12];
 }
 
-function nameTriad(tr){
-  const s=tr.map(noteIndex);
-  for(let i=0;i<3;i++){
-    const r=[s[i],s[(i+1)%3],s[(i+2)%3]].map((x,j)=>((x-r[0]+12)%12)).sort((a,b)=>a-b);
-    if(r+''=='0,4,7')return noteOrder[s[i]]+' major';
-    if(r+''=='0,3,7')return noteOrder[s[i]]+' minor';
-    if(r+''=='0,3,6')return noteOrder[s[i]]+' dim';
-    if(r+''=='0,4,8')return noteOrder[s[i]]+' aug';
-    if(r+''=='0,2,7')return noteOrder[s[i]]+' sus2';
-    if(r+''=='0,5,7')return noteOrder[s[i]]+' sus4';
-  }
-  return noteOrder[s[0]]+' 7_4M';
-}
-
-function generateTriads(base){
-  const res=new Set();
-  for(let a=-2;a<=2;a++)for(let b=-2;b<=2;b++)for(let c=-2;c<=2;c++){
-    res.add([transpose(base[0],a),transpose(base[1],b),transpose(base[2],c)].join());
-  }
-  return [...res].map(r=>r.split(','));
-}
-
-// ------------------ PRECOMPUTE ------------------
-const allTriads={};
-
-function compute(base,key,scaleNotes,label){
-  return generateTriads(base).map(t=>{
-    const [c]=classify(t,base,scaleNotes);
-    return {triad:t,color:c,name:nameTriad(t),source:key+label};
-  });
-}
-
-for(const s in scaleIntervals){
-  allTriads[s]={};
-  for(const k of noteOrder){
-    const scale=scaleIntervals[s].map(i=>noteOrder[(noteIndex(k)+i)%12]);
-    const base=baseTriadIntervals[s].map(i=>noteOrder[(noteIndex(k)+i)%12]);
-    allTriads[s][k]=compute(base,k,scale,keyAbbr[s]);
-  }
-}
-for(const r in extraTriadRefs){
-  allTriads[r]={};
-  const rel=r.includes('_min')?'naturalMinor':'major';
-  for(const k of noteOrder){
-    const scale=scaleIntervals[rel].map(i=>noteOrder[(noteIndex(k)+i)%12]);
-    const base=extraTriadRefs[r].map(i=>noteOrder[(noteIndex(k)+i)%12]);
-    allTriads[r][k]=compute(base,k,scale,r);
-  }
-}
-
-// ------------------ INFERENCE (FIXED LOGIC) ------------------
 function inferFromTriad(t){
-  const root=t.name.split(' ')[0];
-  const families=['sus2','sus4','dim','aug','7_3Tm','7_4M','1/2dim_3TM','1/2dim_4m'];
-  let fam=null;
-  for(const f of families) if(t.name.includes(f)) fam=f;
-  const quality=t.source.includes('min')?'min':'maj';
-  const scale=fam?`${fam}_${quality}`:(quality==='min'?'naturalMinor':'major');
-  return {key:root,scale};
-}
-
-// ------------------ PLAY PACKAGE ------------------
-function createPlayPackage(x,y,k='C',s='major'){
-  const d=document.createElement('div');
-  d.className='playPackage'; d.style.left=x+'px'; d.style.top=y+'px';
-  d.innerHTML=`
-  <div class="packageHeader">Play<button class="deletePackage">x</button></div>
-  <select class="scaleSelect">${Object.keys(allTriads).map(v=>`<option ${v==s?'selected':''}>${v}</option>`)}</select>
-  <select class="keySelect">${noteOrder.map(v=>`<option ${v==k?'selected':''}>${v}</option>`)}</select>
-  <select class="colorSelect">${colorOrder.map(v=>`<option>${v}</option>`)}</select>
-  <button class="triadBtn"><div></div><div class="chordName"></div></button>
-  <div class="navButtons"><button class="prev">◀</button><button class="next">▶</button></div>
-  <button class="playBtn">Play</button>`;
-  document.body.appendChild(d);
-
-  let i=0;
-  function update(){
-    const sc=d.querySelector('.scaleSelect').value;
-    const k=d.querySelector('.keySelect').value;
-    const c=d.querySelector('.colorSelect').value;
-    const list=allTriads[sc][k].filter(t=>t.color==c);
-    if(!list.length)return;
-    const t=list[(i+list.length)%list.length];
-    d.querySelector('.triadBtn div').textContent=t.triad.join('-');
-    d.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
-    d.querySelector('.triadBtn').style.background=colorMap[c];
-    d.querySelector('.playBtn').style.background=colorMap[c];
-    if(c=='BLACK'){d.querySelector('.triadBtn').classList.add('blackBtn');d.querySelector('.playBtn').classList.add('blackBtn');}
-    lastPackageInfo=inferFromTriad(t);
+  if(!t || !t.name){
+    return { key:'C', scale:'major' };
   }
 
-  d.querySelector('.scaleSelect').onchange=update;
-  d.querySelector('.keySelect').onchange=update;
-  d.querySelector('.colorSelect').onchange=update;
-  d.querySelector('.prev').onclick=()=>{i--;update();};
-  d.querySelector('.next').onclick=()=>{i++;update();};
-  d.querySelector('.deletePackage').onclick=()=>d.remove();
+  const root = t.name.trim().split(' ')[0] || 'C';
 
-  makeDraggable(d);
-  update();
+  const families = [
+    'sus2','sus4','dim','aug',
+    '7_3Tm','7_4M','1/2dim_3TM','1/2dim_4m'
+  ];
+
+  let family = null;
+  for(const f of families){
+    if(t.name.includes(f)){
+      family = f;
+      break;
+    }
+  }
+
+  let quality = 'maj';
+  if(t.source && t.source.includes('min')) quality = 'min';
+
+  let scale;
+  if(family){
+    scale = `${family}_${quality}`;
+  } else {
+    scale = (quality === 'min') ? 'naturalMinor' : 'major';
+  }
+
+  if(!allTriads[scale]) scale = 'major';
+
+  return { key:root, scale };
 }
 
-// ------------------ DRAG ------------------
-function makeDraggable(el){
-  let ox,oy,down=false;
-  const h=el.querySelector('.packageHeader');
-  h.onmousedown=e=>{down=true;ox=e.clientX-el.offsetLeft;oy=e.clientY-el.offsetTop;};
-  h.ontouchstart=e=>{down=true;ox=e.touches[0].clientX-el.offsetLeft;oy=e.touches[0].clientY-el.offsetTop;e.preventDefault();};
-  document.onmouseup=()=>down=false;
-  document.onmousemove=e=>down&&(el.style.left=e.clientX-ox+'px',el.style.top=e.clientY-oy+'px');
-  h.ontouchmove=e=>{if(!down)return;el.style.left=e.touches[0].clientX-ox+'px';el.style.top=e.touches[0].clientY-oy+'px';e.preventDefault();};
+/* ---------------- PACKAGE ---------------- */
+
+function createPackage(x=50,y=80){
+  const pkg = document.createElement('div');
+  pkg.className='playPackage';
+  pkg.style.left=x+'px';
+  pkg.style.top=y+'px';
+
+  const del=document.createElement('div');
+  del.className='deleteBtn';
+  del.textContent='✕';
+  del.onclick=()=>pkg.remove();
+  pkg.appendChild(del);
+
+  const scaleSel=document.createElement('select');
+  Object.keys(allTriads).forEach(s=>{
+    const o=document.createElement('option');
+    o.value=o.textContent=s;
+    scaleSel.appendChild(o);
+  });
+  scaleSel.value=lastPackageInfo.scale;
+  pkg.appendChild(scaleSel);
+
+  const keySel=document.createElement('select');
+  NOTES.forEach(n=>{
+    const o=document.createElement('option');
+    o.value=o.textContent=n;
+    keySel.appendChild(o);
+  });
+  keySel.value=lastPackageInfo.key;
+  pkg.appendChild(keySel);
+
+  const colorSel=document.createElement('select');
+  COLORS.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.name;
+    o.textContent=c.name;
+    colorSel.appendChild(o);
+  });
+  pkg.appendChild(colorSel);
+
+  const triadBtn=document.createElement('button');
+  triadBtn.className='triadBtn';
+  pkg.appendChild(triadBtn);
+
+  const playBtn=document.createElement('button');
+  playBtn.className='playBtn';
+  playBtn.textContent='▶';
+  pkg.appendChild(playBtn);
+
+  let idx=0;
+
+  function updateTriad(){
+    const tri=allTriads[scaleSel.value][0];
+    const root=keySel.value;
+    const notes=tri.map(s=>noteAt(root,s));
+    const name=root+' '+scaleSel.value.replace(/_.*/,'');
+    const source=scaleSel.value;
+
+    const col=COLORS.find(c=>c.name===colorSel.value);
+    triadBtn.style.background=col.color;
+    playBtn.style.background=col.color;
+
+    triadBtn.textContent=name+' ('+source+')';
+
+    const t={name,source,notes};
+    lastPackageInfo=inferFromTriad(t);
+
+    playBtn.onclick=async()=>{
+      await Tone.start();
+      synth.triggerAttackRelease(notes,'1n');
+    };
+  }
+
+  scaleSel.onchange=updateTriad;
+  keySel.onchange=updateTriad;
+  colorSel.onchange=updateTriad;
+
+  updateTriad();
+
+  /* ---- drag (mouse + touch) ---- */
+  let ox,oy,drag=false;
+
+  const start=e=>{
+    drag=true;
+    const p=e.touches?e.touches[0]:e;
+    ox=p.clientX-pkg.offsetLeft;
+    oy=p.clientY-pkg.offsetTop;
+  };
+  const move=e=>{
+    if(!drag)return;
+    const p=e.touches?e.touches[0]:e;
+    pkg.style.left=p.clientX-ox+'px';
+    pkg.style.top=p.clientY-oy+'px';
+  };
+  const end=()=>drag=false;
+
+  pkg.addEventListener('mousedown',start);
+  document.addEventListener('mousemove',move);
+  document.addEventListener('mouseup',end);
+
+  pkg.addEventListener('touchstart',start,{passive:false});
+  document.addEventListener('touchmove',move,{passive:false});
+  document.addEventListener('touchend',end);
+
+  document.body.appendChild(pkg);
 }
 
-// ------------------ INIT ------------------
-document.getElementById('insertPackageBtn').onclick=()=>{
-  const k=lastPackageInfo?lastPackageInfo.key:'C';
-  const s=lastPackageInfo?lastPackageInfo.scale:'major';
-  createPlayPackage(60+Math.random()*40,60+Math.random()*40,k,s);
+/* ---------------- INSERT ---------------- */
+
+document.getElementById('insertBtn').onclick=()=>{
+  createPackage(60+pkgCount*20,120+pkgCount*20);
+  pkgCount++;
 };
 </script>
 
