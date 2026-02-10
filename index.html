@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chord Familiarity Generator - Play Packages</title>
 <style>
-/* ---------- GENERAL STYLES ---------- */
+/* ---------- GENERAL ---------- */
 body {
     font-family: 'Segoe UI', sans-serif;
     padding: 10px;
@@ -35,17 +35,28 @@ select {
     color: #eee;
 }
 
-/* ---------- PLAY PACKAGE CONTAINER ---------- */
+button {
+    padding: 10px;
+    background-color: #444;
+    color: #fff;
+    transition: background 0.2s, transform 0.1s;
+}
+
+button:hover {
+    background-color: #555;
+}
+
+/* ---------- PLAY PACKAGE ---------- */
 .playPackage {
     position: absolute;
     border: 1px solid #555;
-    padding: 12px;
+    padding: 14px;
     background: #2c2c2c;
-    width: 260px;
+    width: 280px;
     z-index: 1000;
     box-sizing: border-box;
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6);
 }
 
 /* ---------- PACKAGE HEADER ---------- */
@@ -69,34 +80,33 @@ select {
 .deletePackage {
     background: #e74c3c;
     color: #fff;
-    font-size: 1.2em;
-    padding: 4px 10px;
+    font-size: 1.3em;
+    padding: 6px 10px;
     border-radius: 6px;
 }
 
-/* ---------- TRIAD & PLAY BUTTON ---------- */
+/* ---------- TRIAD BUTTON ---------- */
 .triadBtn, .playBtn {
     width: 100%;
     margin: 6px 0;
-    height: 60px; /* taller */
+    height: 60px; /* slightly higher */
     font-size: 0.95em;
     padding: 0 5px;
     text-align: center;
-    border-radius: 8px;
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
-    justify-content: center; /* vertically center text */
-    transition: transform 0.1s, background 0.2s;
-    background: #444;
+    justify-content: center; /* vertical align text */
+    align-items: center;
+    transition: transform 0.1s, box-shadow 0.2s;
+    background: linear-gradient(145deg, #444, #333);
     color: #fff;
+    font-weight: 500;
+    box-shadow: inset 0 -2px 3px rgba(0,0,0,0.5);
 }
 
 .triadBtn:hover, .playBtn:hover {
-    background: linear-gradient(145deg, #555, #333);
-}
-
-.triadBtn:active, .playBtn:active {
-    transform: scale(0.97);
+    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.6), 0 3px 10px rgba(0,0,0,0.5);
 }
 
 .triadBtn.blackBtn, .playBtn.blackBtn {
@@ -122,21 +132,21 @@ select {
     background-color: #555;
 }
 
-/* ---------- DROPDOWN FULL WIDTH ---------- */
-.scaleSelect, .keySelect, .colorSelect {
-    width: 100%;
-    margin-bottom: 6px;
+/* ---------- COLOR SELECT ---------- */
+.colorSelect {
+    width: 100%; /* same width as triad button */
+    padding: 6px 10px;
+    margin: 6px 0;
     background-color: #333;
-    color: #eee;
-    padding: 6px;
-    border-radius: 6px;
+    color: #fff;
+    border-radius: 8px;
 }
 
-/* ---------- TEXT ---------- */
+/* ---------- TRIAD TEXT ---------- */
 .selectableText, .chordName {
     display: block;
     font-weight: 500;
-    line-height: 1.2em;
+    text-align: center;
 }
 </style>
 </head>
@@ -152,7 +162,7 @@ select {
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
-// ---------------- DATA ----------------
+// ---------------- DATA & FUNCTIONS (same as working version) ----------------
 const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const scaleIntervals = { major:[0,2,4,5,7,9,11], naturalMinor:[0,2,3,5,7,8,10], harmonicMinor:[0,2,3,5,7,8,11], melodicMinor:[0,2,3,5,7,9,11] };
 const baseTriadIntervals = { major:[0,4,7], naturalMinor:[0,3,7], harmonicMinor:[0,3,7], melodicMinor:[0,3,7] };
@@ -161,11 +171,9 @@ const extraTriadRefs = { 'sus2_maj':[0,2,7], 'sus2_min':[0,2,7], 'sus4_maj':[0,5
 const colorMap={BASE:'#00AA00',RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
 const colorOrder = ['BASE','RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
 const sampleChoiceMap = { "C":["C5","C6"], "C#":["C#5"], "D":["D5"], "D#":["D#5"], "E":["E5"], "F":["F5"], "F#":["F#5"], "G":["G5"], "G#":["G#4","G#5"], "A":["A4","A5"], "A#":["A#4","A#5"], "B":["B4","B5"] };
-const pianoSamplerUrls = { "A4":"A4.wav","A5":"A5.wav","A#4":"ASharp4.wav","A#5":"ASharp5.wav", "B4":"B4.wav","B5":"B5.wav","C5":"C5.wav","C6":"C6.wav","C#5":"CSharp5.wav","D5":"D5.wav","D#5":"DSharp5.wav","E5":"E5.wav","F5":"F5.wav","F#5":"FSharp5.wav","G5":"G5.wav","G#4":"GSharp4.wav","G#5":"GSharp5.wav" };
+const pianoSamplerUrls = { "A4":"A4.wav","A5":"A5.wav","A#4":"ASharp4.wav","A#5":"ASharp5.wav","B4":"B4.wav","B5":"B5.wav","C5":"C5.wav","C6":"C6.wav","C#5":"CSharp5.wav","D5":"D5.wav","D#5":"DSharp5.wav","E5":"E5.wav","F5":"F5.wav","F#5":"FSharp5.wav","G5":"G5.wav","G#4":"GSharp4.wav","G#5":"GSharp5.wav" };
 
-// ---------------- FUNCTIONS (all original logic) ----------------
-// noteIndex, transpose, normalizeEnharmonics, classify, nameTriad, generateTriads, playChord, precompute allTriads, createPlayPackage...
-// For brevity, you can paste your full original JS logic here exactly as before.
+// --- Keep all functions from working version (noteIndex, transpose, classify, nameTriad, generateTriads, playChord, precompute allTriads, createPlayPackage) ---
 
 // ---------------- INSERT BUTTON ----------------
 document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20*Math.random(),50+20*Math.random());};
