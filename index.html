@@ -37,7 +37,7 @@ select {
 
 /* ---------- COLOR SELECT WIDER ---------- */
 .colorSelect {
-    width: 100%; /* match triad button width */
+    width: 100%;
     padding: 6px 10px;
     margin: 0 0 10px 0;
     background-color: #333;
@@ -254,17 +254,22 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     const [color,degree]=classify(t,baseTriad,scaleNotes);
     const name=nameTriad(t);
     if(!name) return null;
+
+    // --- CORRECT NEXT COLUMN LOGIC ---
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
+    // Determine suffix from current row's Source column
+    let sourceSuffix = (key+label).endsWith('maj') ? 'maj' : 'min';
+
     if(['major','minor','dim','aug','sus2','sus4'].includes(chordOnly)){
-      if(chordOnly==='major') nextRef='major';
-      else if(chordOnly==='minor') nextRef='naturalMinor';
-      else nextRef=chordOnly+'_min';
+        if(chordOnly==='major') nextRef='major';
+        else if(chordOnly==='minor') nextRef='naturalMinor';
+        else nextRef = chordOnly + '_' + sourceSuffix;
     } else {
-      const suffix = (key+label).endsWith('maj')?'maj':'min';
-      nextRef = chordOnly+'_'+suffix;
+        nextRef = chordOnly + '_' + sourceSuffix;
     }
+
     return {triad:t,color,degree,name,source:key+label,nextRef};
   }).filter(Boolean);
   return triads;
@@ -311,13 +316,13 @@ function createPlayPackage(x=50,y=50){
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
 
-  // --- only inherit root note, reset scaleSelect to default ---
   if(lastTriadBtn){
     const prevChordName = lastTriadBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
     if(prevChordName){
       const rootMatch = prevChordName.match(/^([A-G]#?)/);
       if(rootMatch) keySelect.value = rootMatch[1];
-      scaleSelect.value = 'major'; // reset column, no inheritance
+      const nextRef = lastTriadBtn.dataset.nextRef;
+      if(nextRef && allTriads[nextRef]) scaleSelect.value = nextRef;
     }
   }
 
