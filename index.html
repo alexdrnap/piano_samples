@@ -7,7 +7,7 @@
 <style>
 body { font-family: sans-serif; padding: 10px; }
 button, select { cursor: pointer; }
-.playPackage { position: absolute; border: 1px solid #888; padding: 10px; background: #f9f9f9; width: 220px; z-index: 1000; box-sizing: border-box; border-radius: 6px; }
+.playPackage { position: absolute; border: 1px solid #888; padding: 10px; background: #f9f9f9; width: 240px; z-index: 1000; box-sizing: border-box; border-radius: 6px; }
 .packageHeader { display: flex; justify-content: space-between; align-items: center; cursor: move; background: #ddd; padding: 5px 8px; border-radius: 4px; }
 .navButtons { display: flex; justify-content: center; margin: 5px 0; }
 .navButtons button { margin: 0 2px; }
@@ -52,7 +52,7 @@ const pianoSamplerUrls = {
   "G5":"G5.wav","G#4":"GSharp4.wav","G#5":"GSharp5.wav"
 };
 
-// --- Triad and playback functions (same as previous code) ---
+// Triad & playback functions (same as before)
 function noteIndex(note){return noteOrder.indexOf(note);}
 function transpose(note,semitones){return noteOrder[(noteIndex(note)+12+semitones)%12];}
 function normalizeEnharmonics(triad){ return triad.map(n=>{
@@ -97,8 +97,6 @@ function generateTriads(base){
   for(let s1 of semis) for(let s2 of semis) for(let s3 of semis){ let tri=[transpose(base[0],s1),transpose(base[1],s2),transpose(base[2],s3)]; results.add(tri.join(',')); }
   return Array.from(results).map(r=>r.split(','));
 }
-
-// --- Playback ---
 let currentSound='piano', pianoSampler, currentSynth=null;
 async function changeSound(sound){ currentSound=sound;
   if(sound==='piano' && !pianoSampler){ 
@@ -118,7 +116,7 @@ async function playChord(triad){
   else if(currentSound==='AMSynth'){ currentSynth=new Tone.PolySynth(Tone.AMSynth).toDestination(); currentSynth.triggerAttackRelease(notes,'1n'); }
 }
 
-// --- Precompute ---
+// --- Precompute allTriads ---
 const allTriads={};
 function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
   const triads=generateTriads(baseTriad).map(t=>{
@@ -148,9 +146,10 @@ for(let refName in extraTriadRefs){
   }
 }
 
-// --- Play Package ---
-let lastPackage = {key:'C', scale:'major', chordName:'', source:'maj'};
+// --- last package info for inheritance ---
+let lastPackageTriadInfo = null;
 
+// --- createPlayPackage ---
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
   container.innerHTML=`
@@ -168,22 +167,22 @@ function createPlayPackage(x=50,y=50){
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
 
-  // --- NEW package default logic ---
-  if(lastPackage.chordName){
-    const chordName = lastPackage.chordName;
-    // check if standard or extra triad
-    if(!['major','naturalMinor','harmonicMinor','melodicMinor'].includes(lastPackage.scale)){
+  // --- NEW PACKAGE INHERITANCE ---
+  if(lastPackageTriadInfo){
+    const prev = lastPackageTriadInfo;
+    if(!['major','naturalMinor','harmonicMinor','melodicMinor'].includes(prev.scale)){
       // extra triads
-      const baseChord = chordName.replace(/^[A-G]#?/,''); // remove root note
-      const suffix = lastPackage.source.endsWith('maj')?'maj':'min';
-      if(extraTriadRefs.hasOwnProperty(baseChord+'_maj') || extraTriadRefs.hasOwnProperty(baseChord+'_min')){
-        scaleSelect.value = baseChord+'_'+suffix;
-        keySelect.value = lastPackage.key; // keep same key
+      const chordBase = prev.chordName.replace(/^[A-G]#?/,''); // strip root
+      const suffix = prev.source.endsWith('maj')?'maj':'min';
+      const refName = chordBase+'_'+suffix;
+      if(allTriads[refName]){
+        scaleSelect.value = refName;
+        keySelect.value = prev.key;
       }
     } else {
       // standard triads
-      scaleSelect.value = lastPackage.scale;
-      keySelect.value = lastPackage.key;
+      scaleSelect.value = prev.scale;
+      keySelect.value = prev.key;
     }
   }
 
@@ -219,7 +218,7 @@ function createPlayPackage(x=50,y=50){
         playBtn.style.color='#000';
     }
 
-    lastPackage = {key:key, scale:scale, chordName:t.name, source:t.source};
+    lastPackageTriadInfo = {chordName:t.name, source:t.source, key:key, scale:scale};
   }
 
   scaleSelect.onchange=()=>{currentIndex=0; updateTriad();};
@@ -232,8 +231,6 @@ function createPlayPackage(x=50,y=50){
     if(txt) playChord(txt.split('-'));
   };
   container.querySelector('.deletePackage').onclick=()=>{container.remove();};
-
-  updateTriad();
 
   // --- drag ---
   const header=container.querySelector('.packageHeader');
@@ -257,6 +254,8 @@ function createPlayPackage(x=50,y=50){
   window.addEventListener('touchmove',drag);
   window.addEventListener('mouseup',stopDrag);
   window.addEventListener('touchend',stopDrag);
+
+  updateTriad();
 }
 
 // --- Insert button ---
