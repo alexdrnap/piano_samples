@@ -37,7 +37,7 @@ select {
 
 /* ---------- COLOR SELECT WIDER ---------- */
 .colorSelect {
-    width: 100%; /* match triad button width */
+    width: 100%;
     padding: 6px 10px;
     margin: 0 0 10px 0;
     background-color: #333;
@@ -99,17 +99,17 @@ button:hover {
 /* ---------- TRIAD & PLAY BUTTON ---------- */
 .triadBtn, .playBtn {
     width: 100%;
-    height: 70px;          /* increased height */
+    height: 70px;
     font-size: 0.95em;
     padding: 5px;
     text-align: center;
     border-radius: 8px;
     transition: transform 0.1s;
-    display: flex;          /* flex for vertical centering */
-    flex-direction: column; /* stack selectableText and chordName vertically */
-    justify-content: center; /* vertical centering */
-    align-items: center;     /* horizontal centering */
-    word-break: break-word;  /* prevent overflow */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    word-break: break-word;
 }
 
 .triadBtn:active, .playBtn:active {
@@ -257,9 +257,11 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
+    // ----- FIX FOR dim_maj preserving source -----
     if(['major','minor','dim','aug','sus2','sus4'].includes(chordOnly)){
       if(chordOnly==='major') nextRef='major';
       else if(chordOnly==='minor') nextRef='naturalMinor';
+      else if(chordOnly==='dim') nextRef = key+label; // preserve original source (maj/min)
       else nextRef=chordOnly+'_min';
     } else {
       const suffix = (key+label).endsWith('maj')?'maj':'min';
@@ -342,9 +344,11 @@ function createPlayPackage(x=50,y=50){
 
     triadBtn.style.background=colorMap[color];
     triadBtn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
+
     const playBtn=container.querySelector('.playBtn');
     playBtn.style.background=colorMap[color];
     playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
+
     if(color==='BLACK'){
       triadBtn.querySelector('.chordName').style.color='white';
       triadBtn.querySelector('.selectableText').style.color='white';
@@ -371,15 +375,7 @@ function createPlayPackage(x=50,y=50){
   // --- TOUCH DRAG ---
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
-  function startDrag(e){
-    // FIX: allow deletePackage click on touch
-    if(e.target.classList.contains('deletePackage')) return;
-    dragging=true; 
-    const ev = e.touches?e.touches[0]:e; 
-    offsetX=ev.clientX-container.offsetLeft; 
-    offsetY=ev.clientY-container.offsetTop; 
-    e.preventDefault();
-  }
+  function startDrag(e){dragging=true; const ev = e.touches?e.touches[0]:e; offsetX=ev.clientX-container.offsetLeft; offsetY=ev.clientY-container.offsetTop; e.preventDefault();}
   function drag(e){ if(!dragging) return; const ev = e.touches?e.touches[0]:e; container.style.left=(ev.clientX-offsetX)+'px'; container.style.top=(ev.clientY-offsetY)+'px'; }
   function stopDrag(){dragging=false;}
   header.addEventListener('mousedown',startDrag); header.addEventListener('touchstart',startDrag);
