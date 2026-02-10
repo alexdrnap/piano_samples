@@ -60,7 +60,6 @@ const extraTriadRefs = {
 };
 
 // --- Color map ---
-// BASE (green) is first in dropdown
 const colorMap={BASE:'#00AA00',RED:'#FF4C4C',ORANGE:'#FF9900',GOLD:'#FFD700',YELLOW:'#FFFF66',BLUE:'#6699FF',WHITE:'#FFFFFF',"LIGHT GREY":'#CCCCCC',"DARK GREY":'#888888',BLACK:'#000000'};
 const colorOrder = ['BASE','RED','ORANGE','GOLD','YELLOW','BLUE','WHITE','LIGHT GREY','DARK GREY','BLACK'];
 
@@ -183,12 +182,19 @@ for(let refName in extraTriadRefs){
 }
 
 // ---------------- Module 5: Play Package ----------------
+let lastPackageInfo=null; // store last triad button key & scale
+
 function createPlayPackage(x=50,y=50){
+  let defaultKey='C', defaultScale='major';
+  if(lastPackageInfo){
+    defaultKey=lastPackageInfo.key;
+    defaultScale=lastPackageInfo.scale;
+  }
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
   container.innerHTML=`
     <div class="packageHeader"><span>Play Package</span><button class="deletePackage">X</button></div>
-    <select class="scaleSelect">${Object.keys(allTriads).map(s=>`<option value="${s}">${s}</option>`)}</select>
-    <select class="keySelect">${noteOrder.map(n=>`<option value="${n}">${n}</option>`)}</select>
+    <select class="scaleSelect">${Object.keys(allTriads).map(s=>`<option value="${s}" ${s===defaultScale?'selected':''}>${s}</option>`)}</select>
+    <select class="keySelect">${noteOrder.map(n=>`<option value="${n}" ${n===defaultKey?'selected':''}>${n}</option>`)}</select>
     <select class="colorSelect">${colorOrder.map(c=>`<option value="${c}">${c}</option>`)}</select>
     <button class="triadBtn"><span class="selectableText"></span><span class="chordName"></span></button>
     <div class="navButtons"><button class="prevBtn">◀</button><button class="nextBtn">▶</button></div>
@@ -228,6 +234,9 @@ function createPlayPackage(x=50,y=50){
         btn.querySelector('.selectableText').style.color='#000';
         playBtn.style.color='#000';
     }
+
+    // store last key & scale for next package
+    lastPackageInfo={ key: t.source.match(/[A-G]#?/)[0], scale: Object.keys(allTriads).find(s=>t.source.includes(s))||'major' };
   }
 
   container.querySelector('.scaleSelect').onchange=()=>{currentIndex=0; updateTriad();};
@@ -239,23 +248,28 @@ function createPlayPackage(x=50,y=50){
     const txt=container.querySelector('.triadBtn .selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
-  container.querySelector('.deletePackage').onclick=()=>container.remove();
+  container.querySelector('.triadBtn').onclick=container.querySelector('.playBtn').onclick;
+  container.querySelector('.deletePackage').onclick=()=>{container.remove();};
 
-  // Dragging per package
-  const header=container.querySelector('.packageHeader');
-  let offsetX=0, offsetY=0, dragging=false;
-  header.addEventListener('mousedown', e=>{
-    dragging=true; offsetX=e.clientX-container.offsetLeft; offsetY=e.clientY-container.offsetTop;
-    e.preventDefault();
-  });
-  document.addEventListener('mouseup', ()=>dragging=false);
-  document.addEventListener('mousemove', e=>{ if(dragging){ container.style.left=(e.clientX-offsetX)+'px'; container.style.top=(e.clientY-offsetY)+'px'; }});
-
+  makeDraggable(container);
   updateTriad();
 }
 
+// ---------------- Module 6: Dragging ----------------
+function makeDraggable(el){
+  let offsetX=0,offsetY=0,isDown=false;
+  const header=el.querySelector('.packageHeader');
+  header.onmousedown=function(e){ isDown=true; offsetX=e.clientX-el.offsetLeft; offsetY=e.clientY-el.offsetTop; }
+  document.onmouseup=function(){ isDown=false; }
+  document.onmousemove=function(e){ if(!isDown) return; el.style.left=(e.clientX-offsetX)+'px'; el.style.top=(e.clientY-offsetY)+'px'; }
+}
+
 // ---------------- Initialize ----------------
-document.getElementById('insertPackageBtn').onclick=()=>createPlayPackage();
+document.getElementById('insertPackageBtn').onclick=()=>{ createPlayPackage(50+Math.random()*50,50+Math.random()*50); };
+document.getElementById('soundSelectGlobal').onchange=(e)=>{ changeSound(e.target.value); };
+
+// Preload piano
+changeSound('piano');
 </script>
 </body>
 </html>
