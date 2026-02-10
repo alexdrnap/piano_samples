@@ -28,6 +28,7 @@ button, select { cursor: pointer; }
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
+// ---------------- Data ----------------
 const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const scaleIntervals = { major:[0,2,4,5,7,9,11], naturalMinor:[0,2,3,5,7,8,10], harmonicMinor:[0,2,3,5,7,8,11], melodicMinor:[0,2,3,5,7,9,11] };
 const baseTriadIntervals = { major:[0,4,7], naturalMinor:[0,3,7], harmonicMinor:[0,3,7], melodicMinor:[0,3,7] };
@@ -52,7 +53,7 @@ const pianoSamplerUrls = {
   "G5":"G5.wav","G#4":"GSharp4.wav","G#5":"GSharp5.wav"
 };
 
-// Triad & playback functions (same as before)
+// ---------------- Triad & playback functions ----------------
 function noteIndex(note){return noteOrder.indexOf(note);}
 function transpose(note,semitones){return noteOrder[(noteIndex(note)+12+semitones)%12];}
 function normalizeEnharmonics(triad){ return triad.map(n=>{
@@ -116,7 +117,7 @@ async function playChord(triad){
   else if(currentSound==='AMSynth'){ currentSynth=new Tone.PolySynth(Tone.AMSynth).toDestination(); currentSynth.triggerAttackRelease(notes,'1n'); }
 }
 
-// --- Precompute allTriads ---
+// ---------------- Precompute allTriads ----------------
 const allTriads={};
 function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
   const triads=generateTriads(baseTriad).map(t=>{
@@ -146,10 +147,10 @@ for(let refName in extraTriadRefs){
   }
 }
 
-// --- last package info for inheritance ---
-let lastPackageTriadInfo = null;
+// ---------------- LAST TRIAD DOM REFERENCE ----------------
+let lastTriadBtn = null;
 
-// --- createPlayPackage ---
+// ---------------- Create Play Package ----------------
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
   container.innerHTML=`
@@ -166,23 +167,24 @@ function createPlayPackage(x=50,y=50){
   const scaleSelect=container.querySelector('.scaleSelect');
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
+  const triadBtn=container.querySelector('.triadBtn');
 
-  // --- NEW PACKAGE INHERITANCE ---
-  if(lastPackageTriadInfo){
-    const prev = lastPackageTriadInfo;
-    if(!['major','naturalMinor','harmonicMinor','melodicMinor'].includes(prev.scale)){
-      // extra triads
-      const chordBase = prev.chordName.replace(/^[A-G]#?/,''); // strip root
-      const suffix = prev.source.endsWith('maj')?'maj':'min';
-      const refName = chordBase+'_'+suffix;
-      if(allTriads[refName]){
-        scaleSelect.value = refName;
-        keySelect.value = prev.key;
+  // --- INHERIT FROM PREVIOUS TRIAD BUTTON ---
+  if(lastTriadBtn){
+    const prevChordName = lastTriadBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
+    const prevSource = lastTriadBtn.querySelector('.chordName').textContent.match(/\(Source: (.+)\)/)?.[1] || '';
+    if(prevChordName){
+      // extract root (first note letter + optional #)
+      const rootMatch = prevChordName.match(/^([A-G]#?)/);
+      if(rootMatch) keySelect.value = rootMatch[1];
+      // extract reference (strip root)
+      let ref = prevChordName.replace(/^([A-G]#?)/,'').trim();
+      if(!['major','minor','dim','aug','sus2','sus4'].includes(ref)){ 
+        // for extra triads like 7_4M, pick maj/min from previous source
+        const suffix = prevSource.endsWith('maj')?'maj':'min';
+        ref = ref + '_' + suffix;
       }
-    } else {
-      // standard triads
-      scaleSelect.value = prev.scale;
-      keySelect.value = prev.key;
+      if(allTriads[ref]) scaleSelect.value = ref;
     }
   }
 
@@ -193,32 +195,29 @@ function createPlayPackage(x=50,y=50){
     const color=colorSelect.value;
     const list=allTriads[scale][key].filter(t=>t.color===color);
     if(list.length===0){
-      container.querySelector('.triadBtn .selectableText').textContent='';
-      container.querySelector('.chordName').textContent='';
+      triadBtn.querySelector('.selectableText').textContent='';
+      triadBtn.querySelector('.chordName').textContent='';
       return;
     }
     currentIndex=(currentIndex+list.length)%list.length;
     const t=list[currentIndex];
-    const btn=container.querySelector('.triadBtn');
-    btn.querySelector('.selectableText').textContent=t.triad.join('-');
-    btn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
-    btn.style.background=colorMap[color];
-    btn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
+    triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
+    triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
+    triadBtn.style.background=colorMap[color];
+    triadBtn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
     const playBtn=container.querySelector('.playBtn');
     playBtn.style.background=colorMap[color];
     playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
-
     if(color==='BLACK'){
-        btn.querySelector('.chordName').style.color='white';
-        btn.querySelector('.selectableText').style.color='white';
-        playBtn.style.color='white';
+      triadBtn.querySelector('.chordName').style.color='white';
+      triadBtn.querySelector('.selectableText').style.color='white';
+      playBtn.style.color='white';
     } else {
-        btn.querySelector('.chordName').style.color='#333';
-        btn.querySelector('.selectableText').style.color='#000';
-        playBtn.style.color='#000';
+      triadBtn.querySelector('.chordName').style.color='#333';
+      triadBtn.querySelector('.selectableText').style.color='#000';
+      playBtn.style.color='#000';
     }
-
-    lastPackageTriadInfo = {chordName:t.name, source:t.source, key:key, scale:scale};
+    lastTriadBtn = triadBtn;
   }
 
   scaleSelect.onchange=()=>{currentIndex=0; updateTriad();};
@@ -227,7 +226,7 @@ function createPlayPackage(x=50,y=50){
   container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateTriad();};
   container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateTriad();};
   container.querySelector('.playBtn').onclick=()=>{ 
-    const txt=container.querySelector('.triadBtn .selectableText').textContent;
+    const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt) playChord(txt.split('-'));
   };
   container.querySelector('.deletePackage').onclick=()=>{container.remove();};
@@ -235,30 +234,17 @@ function createPlayPackage(x=50,y=50){
   // --- drag ---
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
-  function startDrag(e){
-    dragging=true;
-    offsetX=(e.touches?e.touches[0].clientX:e.clientX)-container.offsetLeft;
-    offsetY=(e.touches?e.touches[0].clientY:e.clientY)-container.offsetTop;
-  }
-  function drag(e){
-    if(!dragging) return;
-    const clientX=e.touches?e.touches[0].clientX:e.clientX;
-    const clientY=e.touches?e.touches[0].clientY:e.clientY;
-    container.style.left=(clientX-offsetX)+'px';
-    container.style.top=(clientY-offsetY)+'px';
-  }
+  function startDrag(e){dragging=true; const ev = e.touches?e.touches[0]:e; offsetX=ev.clientX-container.offsetLeft; offsetY=ev.clientY-container.offsetTop; e.preventDefault();}
+  function drag(e){ if(!dragging) return; const ev = e.touches?e.touches[0]:e; container.style.left=(ev.clientX-offsetX)+'px'; container.style.top=(ev.clientY-offsetY)+'px'; }
   function stopDrag(){dragging=false;}
-  header.addEventListener('mousedown',startDrag);
-  header.addEventListener('touchstart',startDrag);
-  window.addEventListener('mousemove',drag);
-  window.addEventListener('touchmove',drag);
-  window.addEventListener('mouseup',stopDrag);
-  window.addEventListener('touchend',stopDrag);
+  header.addEventListener('mousedown',startDrag); header.addEventListener('touchstart',startDrag);
+  window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
+  window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
 
   updateTriad();
 }
 
-// --- Insert button ---
+// --- Insert Button ---
 document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20*Math.random(),50+20*Math.random());};
 </script>
 </body>
