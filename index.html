@@ -230,9 +230,9 @@ function createPlayPackage(x=50, y=50, defaultKey='C', defaultScale='major'){
     }
 
     // update lastPackageInfo for next insertion
-    lastPackageInfo={ 
-      key: t.source.match(/[A-G]#?/)[0], 
-      scale: Object.keys(allTriads).find(s => t.source.includes(s)) || 'major'
+lastPackageInfo = {
+    key: t.name.split(' ')[0], // first word in Chord Name → the key
+    scale: Object.keys(allTriads).find(s => t.source.includes(s)) || 'major' // reference scale from Source
     };
   }
 
@@ -279,3 +279,4 @@ changeSound('piano');
 </script>
 </body>
 </html>
+
