@@ -37,7 +37,7 @@ select {
 
 /* ---------- COLOR SELECT WIDER ---------- */
 .colorSelect {
-    width: 100%; 
+    width: 100%;
     padding: 6px 10px;
     margin: 0 0 10px 0;
     background-color: #333;
@@ -257,12 +257,11 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
-    // --- USE PRECOMPUTED LOGIC FOR NEXT REF ---
     if(['major','minor','dim','aug','sus2','sus4'].includes(chordOnly)){
-      nextRef = chordOnly + (label.endsWith('maj') ? '_maj' : '_min');
+      nextRef = chordOnly+'_'+label;
     } else {
-      const suffix = label.endsWith('maj') ? 'maj':'min';
-      nextRef = chordOnly + '_' + suffix;
+      const suffix = (key+label).endsWith('maj')?'maj':'min';
+      nextRef = chordOnly+'_'+suffix;
     }
     return {triad:t,color,degree,name,source:key+label,nextRef};
   }).filter(Boolean);
@@ -309,15 +308,12 @@ function createPlayPackage(x=50,y=50){
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
+  const deleteBtn=container.querySelector('.deletePackage');
 
-  // --- USE DATASET NEXTREF FROM PREVIOUS TRIAD ---
   if(lastTriadBtn){
     const prevNextRef = lastTriadBtn.dataset.nextRef;
     if(prevNextRef && allTriads[prevNextRef]){
       scaleSelect.value = prevNextRef;
-      const prevChordName = lastTriadBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
-      const rootMatch = prevChordName.match(/^([A-G]#?)/);
-      if(rootMatch) keySelect.value = rootMatch[1];
     }
   }
 
@@ -366,13 +362,33 @@ function createPlayPackage(x=50,y=50){
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
-  container.querySelector('.deletePackage').onclick=()=>container.remove();
+
+  // ---------- DELETE BUTTON FIX ----------
+  deleteBtn.onclick = () => container.remove();
+  deleteBtn.addEventListener('touchend', e => { e.stopPropagation(); container.remove(); });
 
   // --- TOUCH DRAG ---
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
-  function startDrag(e){dragging=true; const ev = e.touches?e.touches[0]:e; offsetX=ev.clientX-container.offsetLeft; offsetY=ev.clientY-container.offsetTop; e.preventDefault();}
-  function drag(e){ if(!dragging) return; const ev = e.touches?e.touches[0]:e; container.style.left=(ev.clientX-offsetX)+'px'; container.style.top=(ev.clientY-offsetY)+'px'; }
+  let startX=0, startY=0;
+  function startDrag(e){
+    dragging=true;
+    const ev = e.touches ? e.touches[0] : e;
+    startX = ev.clientX;
+    startY = ev.clientY;
+    offsetX=ev.clientX-container.offsetLeft;
+    offsetY=ev.clientY-container.offsetTop;
+    e.preventDefault();
+  }
+  function drag(e){
+    if(!dragging) return;
+    const ev = e.touches ? e.touches[0] : e;
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+    if(Math.abs(dx)<5 && Math.abs(dy)<5) return;
+    container.style.left=(ev.clientX-offsetX)+'px';
+    container.style.top=(ev.clientY-offsetY)+'px';
+  }
   function stopDrag(){dragging=false;}
   header.addEventListener('mousedown',startDrag); header.addEventListener('touchstart',startDrag);
   window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
