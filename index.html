@@ -61,6 +61,8 @@ button:hover {
     box-sizing: border-box;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    /* transform scale dynamically applied via JS */
+    transform-origin: top left;
 }
 /* ---------- PACKAGE HEADER ---------- */
 .packageHeader {
@@ -84,7 +86,7 @@ button:hover {
     font-size: 1.2em;
     padding: 4px 8px;
     border-radius: 6px;
-    touch-action: manipulation; /* prevents interfering with dragging */
+    touch-action: manipulation;
 }
 /* ---------- TRIAD & PLAY BUTTON ---------- */
 .triadBtn, .playBtn {
@@ -127,6 +129,21 @@ button:hover {
     display: block;
     font-weight: 500;
 }
+/* ---------- SCALE TOGGLE BUTTON ---------- */
+#toggleScaleBtn {
+    display: block;
+    margin: 10px auto;
+    padding: 8px 16px;
+    font-size: 1em;
+    border-radius: 6px;
+    background-color: #00AAFF;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+#toggleScaleBtn:hover {
+    background-color: #0099DD;
+}
 </style>
 </head>
 <body>
@@ -138,6 +155,7 @@ button:hover {
   <option value="AMSynth">AMSynth</option>
 </select>
 <button id="insertPackageBtn">INSERT PLAY PACKAGE</button>
+<button id="toggleScaleBtn">Toggle Scale (50% / 100%)</button>
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
@@ -277,172 +295,12 @@ for(let refName in extraTriadRefs){
 
 // ---------------- PLAY PACKAGE CREATION ----------------
 let allPackages = [];
+let currentScale = 1; // 1 = 100%, 0.5 = 50%
 
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); 
   container.className='playPackage'; 
   container.style.left=x+'px'; 
   container.style.top=y+'px';
+  container.style.transform = `scale(${currentScale})`;
 
-  container.innerHTML=`
-    <div class="packageHeader"><span>Play Package</span><button class="deletePackage">X</button></div>
-    <select class="scaleSelect">${Object.keys(allTriads).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
-    <select class="keySelect">${noteOrder.map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
-    <select class="colorSelect">${colorOrder.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
-    <button class="triadBtn"><span class="selectableText"></span><span class="chordName"></span></button>
-    <div class="navButtons"><button class="prevBtn">◀</button><button class="nextBtn">▶</button></div>
-    <button class="playBtn">Play</button>
-  `;
-  document.body.appendChild(container);
-  allPackages.push(container);
-
-  const scaleSelect=container.querySelector('.scaleSelect');
-  const keySelect=container.querySelector('.keySelect');
-  const colorSelect=container.querySelector('.colorSelect');
-  const triadBtn=container.querySelector('.triadBtn');
-
-  let currentIndex = 0;
-
-  function updateTriadForPackage(prevScale, prevKey, prevColor){
-    const scale = prevScale || scaleSelect.value;
-    const key = prevKey || keySelect.value;
-    const color = prevColor || colorSelect.value;
-    const list = allTriads[scale][key].filter(t=>t.color===color);
-    if(list.length===0) return;
-
-    currentIndex = (currentIndex+list.length)%list.length;
-    const t = list[currentIndex];
-
-    triadBtn.querySelector('.selectableText').textContent = t.triad.join('-');
-    triadBtn.querySelector('.chordName').innerHTML = t.name+'<br>(Source: '+t.source+')';
-    triadBtn.dataset.nextRef = t.nextRef;
-    triadBtn.dataset.currentIndex = currentIndex;
-
-    triadBtn.style.background = colorMap[color];
-    triadBtn.className = 'triadBtn' + (color==='BLACK'?' blackBtn':'');
-    const playBtn = container.querySelector('.playBtn');
-    playBtn.style.background = colorMap[color];
-    playBtn.className = 'playBtn' + (color==='BLACK'?' blackBtn':'');
-
-    if(color==='BLACK'){
-      triadBtn.querySelector('.chordName').style.color='white';
-      triadBtn.querySelector('.selectableText').style.color='white';
-      playBtn.style.color='white';
-    } else {
-      triadBtn.querySelector('.chordName').style.color='#333';
-      triadBtn.querySelector('.selectableText').style.color='#000';
-      playBtn.style.color='#000';
-    }
-  }
-
-  // ---------------- CHAIN UPDATE ----------------
-  function updateChainFrom(index){
-    for(let i=index+1;i<allPackages.length;i++){
-      const prevPkg = allPackages[i-1];
-      const pkg = allPackages[i];
-
-      const prevTriadBtn = prevPkg.querySelector('.triadBtn');
-      const prevNextRef = prevTriadBtn.dataset.nextRef || prevPkg.querySelector('.scaleSelect').value;
-      const prevKeyMatch = prevTriadBtn.querySelector('.chordName').textContent.match(/^([A-G]#?)/);
-      const prevKey = prevKeyMatch ? prevKeyMatch[1] : prevPkg.querySelector('.keySelect').value;
-      const prevColor = prevPkg.querySelector('.colorSelect').value;
-
-      pkg.querySelector('.scaleSelect').value = prevNextRef;
-      pkg.querySelector('.keySelect').value = prevKey;
-      pkg.querySelector('.colorSelect').value = prevColor;
-
-      pkg.dataset.currentIndex = 0;
-      pkg.querySelector('.triadBtn').dataset.currentIndex = 0;
-      pkg.querySelector('.triadBtn').dataset.nextRef = '';
-
-      // call triad update
-      const scaleSelect = pkg.querySelector('.scaleSelect');
-      const keySelect = pkg.querySelector('.keySelect');
-      const colorSelect = pkg.querySelector('.colorSelect');
-      const triadBtn = pkg.querySelector('.triadBtn');
-      const list = allTriads[scaleSelect.value][keySelect.value].filter(t=>t.color===colorSelect.value);
-      if(list.length>0){
-        const t=list[0];
-        triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
-        triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
-        triadBtn.dataset.nextRef=t.nextRef;
-        triadBtn.dataset.currentIndex=0;
-        triadBtn.style.background=colorMap[colorSelect.value];
-        triadBtn.className='triadBtn'+(colorSelect.value==='BLACK'?' blackBtn':'');
-        const playBtn=pkg.querySelector('.playBtn');
-        playBtn.style.background=colorMap[colorSelect.value];
-        playBtn.className='playBtn'+(colorSelect.value==='BLACK'?' blackBtn':'');
-        if(colorSelect.value==='BLACK'){triadBtn.querySelector('.chordName').style.color='white'; triadBtn.querySelector('.selectableText').style.color='white'; playBtn.style.color='white';}
-        else{triadBtn.querySelector('.chordName').style.color='#333'; triadBtn.querySelector('.selectableText').style.color='#000'; playBtn.style.color='#000';}
-      }
-    }
-  }
-
-  // ---------------- EVENTS ----------------
-  scaleSelect.onchange=keySelect.onchange=colorSelect.onchange=()=>{ updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
-  container.querySelector('.prevBtn').onclick=()=>{ currentIndex--; updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
-  container.querySelector('.nextBtn').onclick=()=>{ currentIndex++; updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
-  container.querySelector('.playBtn').onclick=()=>{ 
-    const txt=triadBtn.querySelector('.selectableText').textContent;
-    if(txt){ const tri=txt.split('-'); playChord(tri); } 
-  };
-
-  // ---------------- DELETE ----------------
-  const deleteBtn = container.querySelector('.deletePackage');
-  function handleDelete(){
-    const idx=allPackages.indexOf(container);
-    container.remove();
-    allPackages = allPackages.filter(p=>p!==container);
-    updatePackageNumbers();
-    updateChainFrom(idx-1);
-  }
-  deleteBtn.addEventListener('click',handleDelete);
-  deleteBtn.addEventListener('touchend',function(e){ e.preventDefault(); handleDelete(); });
-
-  // ---------------- DRAG ----------------
-  const header=container.querySelector('.packageHeader');
-  let offsetX=0, offsetY=0, dragging=false;
-  function startDrag(e){
-    if(e.target.classList.contains('deletePackage')) return; // ignore dragging if touching X
-    dragging=true; 
-    const ev = e.touches?e.touches[0]:e; 
-    offsetX=ev.clientX-container.offsetLeft; 
-    offsetY=ev.clientY-container.offsetTop; 
-    e.preventDefault();
-  }
-  function drag(e){ if(!dragging) return; const ev = e.touches?e.touches[0]:e; container.style.left=(ev.clientX-offsetX)+'px'; container.style.top=(ev.clientY-offsetY)+'px'; }
-  function stopDrag(){dragging=false;}
-  header.addEventListener('mousedown',startDrag); header.addEventListener('touchstart',startDrag);
-  window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
-  window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
-
-  // ---------------- INITIAL UPDATE ----------------
-  if(allPackages.length>1){
-    const prevPkg = allPackages[allPackages.length-2];
-    const prevTriadBtn = prevPkg.querySelector('.triadBtn');
-    const prevNextRef = prevTriadBtn.dataset.nextRef || prevPkg.querySelector('.scaleSelect').value;
-    const prevKeyMatch = prevTriadBtn.querySelector('.chordName').textContent.match(/^([A-G]#?)/);
-    const prevKey = prevKeyMatch ? prevKeyMatch[1] : prevPkg.querySelector('.keySelect').value;
-    const prevColor = prevPkg.querySelector('.colorSelect').value;
-    scaleSelect.value=prevNextRef; keySelect.value=prevKey; colorSelect.value=prevColor;
-  }
-
-  updateTriadForPackage();
-  updatePackageNumbers();
-}
-
-// ---------------- PACKAGE NUMBERS ----------------
-function updatePackageNumbers(){
-  allPackages.forEach((pkg, idx)=>{
-    const header = pkg.querySelector('.packageHeader span');
-    header.textContent = `Play Package ${idx+1}`;
-  });
-}
-
-// ---------------- INSERT BUTTON ----------------
-document.getElementById('insertPackageBtn').onclick=()=>{
-  createPlayPackage(50+20*Math.random(),50+20*Math.random());
-};
-</script>
-</body>
-</html>
