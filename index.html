@@ -35,7 +35,6 @@ select {
     color: #eee;
 }
 
-/* ---------- COLOR SELECT WIDER ---------- */
 .colorSelect {
     width: 100%;
     padding: 6px 10px;
@@ -293,38 +292,58 @@ for(let refName in extraTriadRefs){
   }
 }
 
-// ---------------- PACKAGE MANAGEMENT ----------------
-let lastTriadBtn = null;
-let lastColorUsed = null;
-let allPackages = []; // <-- track all play packages
+// ---------------- PLAY PACKAGE MANAGEMENT ----------------
+let packages = [];
 
-function updatePackagesInheritance(){
-  allPackages.forEach((pkg,index)=>{
-    const scaleSelect=pkg.querySelector('.scaleSelect');
-    const keySelect=pkg.querySelector('.keySelect');
-    const colorSelect=pkg.querySelector('.colorSelect');
-    const triadBtn=pkg.querySelector('.triadBtn');
-    // Numbering
-    pkg.querySelector('.packageHeader span').textContent = 'Play Package '+(index+1);
-
-    // Inherit from previous if not first
-    if(index>0){
-      const prevTriadBtn = allPackages[index-1].querySelector('.triadBtn');
-      const prevColor = prevTriadBtn.dataset.currentColor || 'BASE';
-      const prevKey = prevTriadBtn.dataset.currentKey || 'C';
-      const prevScale = prevTriadBtn.dataset.currentScale || 'major';
-
-      scaleSelect.value = prevScale;
-      keySelect.value = prevKey;
-      colorSelect.value = prevColor;
+function updatePackageTitlesAndInheritance(){
+  packages.forEach((pkg, idx)=>{
+    pkg.querySelector('.packageHeader span').textContent = `Play Package_${idx+1}`;
+    // Inherit key, scale, color from previous package
+    if(idx>0){
+      const prevPkg=packages[idx-1];
+      pkg.querySelector('.scaleSelect').value = prevPkg.querySelector('.scaleSelect').value;
+      pkg.querySelector('.keySelect').value = prevPkg.querySelector('.keySelect').value;
+      pkg.querySelector('.colorSelect').value = prevPkg.querySelector('.colorSelect').value;
     }
-
-    // Trigger triad update
-    const event = new Event('change');
-    scaleSelect.dispatchEvent(event);
+    updateTriadBtn(pkg);
   });
 }
 
+function updateTriadBtn(pkg){
+  const triadBtn=pkg.querySelector('.triadBtn');
+  const scale= pkg.querySelector('.scaleSelect').value;
+  const key = pkg.querySelector('.keySelect').value;
+  const color = pkg.querySelector('.colorSelect').value;
+  const list=allTriads[scale][key].filter(t=>t.color===color);
+  if(list.length===0){
+    triadBtn.querySelector('.selectableText').textContent='';
+    triadBtn.querySelector('.chordName').textContent='';
+    triadBtn.dataset.nextRef='';
+    return;
+  }
+  const currentIndex = parseInt(triadBtn.dataset.currentIndex||0)%list.length;
+  const t=list[currentIndex];
+  triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
+  triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
+  triadBtn.dataset.nextRef=t.nextRef;
+
+  triadBtn.style.background=colorMap[color];
+  triadBtn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
+  const playBtn=pkg.querySelector('.playBtn');
+  playBtn.style.background=colorMap[color];
+  playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
+  if(color==='BLACK'){
+    triadBtn.querySelector('.chordName').style.color='white';
+    triadBtn.querySelector('.selectableText').style.color='white';
+    playBtn.style.color='white';
+  } else {
+    triadBtn.querySelector('.chordName').style.color='#333';
+    triadBtn.querySelector('.selectableText').style.color='#000';
+    playBtn.style.color='#000';
+  }
+}
+
+// ---------------- CREATE PLAY PACKAGE ----------------
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
   container.innerHTML=`
@@ -337,79 +356,60 @@ function createPlayPackage(x=50,y=50){
     <button class="playBtn">Play</button>
   `;
   document.body.appendChild(container);
-  allPackages.push(container);
+  packages.push(container);
 
   const scaleSelect=container.querySelector('.scaleSelect');
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
 
-  let currentIndex=0;
-  function updateTriad(){
-    const scale=scaleSelect.value;
-    const key=keySelect.value;
-    const color=colorSelect.value;
-    const list=allTriads[scale][key].filter(t=>t.color===color);
-    if(list.length===0){
-      triadBtn.querySelector('.selectableText').textContent='';
-      triadBtn.querySelector('.chordName').textContent='';
-      triadBtn.dataset.nextRef='';
-      return;
-    }
-    currentIndex=(currentIndex+list.length)%list.length;
-    const t=list[currentIndex];
-    triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
-    triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
-    triadBtn.dataset.nextRef = t.nextRef;
-    triadBtn.dataset.currentIndex = currentIndex;
-
-    triadBtn.style.background=colorMap[color];
-    triadBtn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
-
-    const playBtn=container.querySelector('.playBtn');
-    playBtn.style.background=colorMap[color];
-    playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
-
-    if(color==='BLACK'){
-      triadBtn.querySelector('.chordName').style.color='white';
-      triadBtn.querySelector('.selectableText').style.color='white';
-      playBtn.style.color='white';
-    } else {
-      triadBtn.querySelector('.chordName').style.color='#333';
-      triadBtn.querySelector('.selectableText').style.color='#000';
-      playBtn.style.color='#000';
-    }
-
-    triadBtn.dataset.currentColor = color;
-    triadBtn.dataset.currentKey = key;
-    triadBtn.dataset.currentScale = scale;
-
-    lastTriadBtn = triadBtn;
-    lastColorUsed = color;
-
-    // Update inheritance for subsequent packages
-    const index = allPackages.indexOf(container);
-    if(index<allPackages.length-1){
-      updatePackagesInheritance();
+  function chainUpdate(){
+    const idx = packages.indexOf(container);
+    for(let i=idx+1;i<packages.length;i++){
+      packages[i].querySelector('.scaleSelect').value = packages[i-1].querySelector('.scaleSelect').value;
+      packages[i].querySelector('.keySelect').value = packages[i-1].querySelector('.keySelect').value;
+      packages[i].querySelector('.colorSelect').value = packages[i-1].querySelector('.colorSelect').value;
+      updateTriadBtn(packages[i]);
     }
   }
 
-  scaleSelect.onchange=()=>{currentIndex=0; updateTriad();};
-  keySelect.onchange=()=>{currentIndex=0; updateTriad();};
-  colorSelect.onchange=()=>{currentIndex=0; updateTriad();};
-  container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateTriad();};
-  container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateTriad();};
-  container.querySelector('.playBtn').onclick=()=>{ 
+  scaleSelect.onchange = ()=>{
+    updateTriadBtn(container);
+    chainUpdate();
+  };
+  keySelect.onchange = ()=>{
+    updateTriadBtn(container);
+    chainUpdate();
+  };
+  colorSelect.onchange = ()=>{
+    updateTriadBtn(container);
+    chainUpdate();
+  };
+
+  container.querySelector('.prevBtn').onclick = ()=>{
+    const list=allTriads[scaleSelect.value][keySelect.value].filter(t=>t.color===colorSelect.value);
+    if(list.length===0) return;
+    triadBtn.dataset.currentIndex = ((parseInt(triadBtn.dataset.currentIndex||0)-1+list.length)%list.length);
+    updateTriadBtn(container);
+  };
+  container.querySelector('.nextBtn').onclick = ()=>{
+    const list=allTriads[scaleSelect.value][keySelect.value].filter(t=>t.color===colorSelect.value);
+    if(list.length===0) return;
+    triadBtn.dataset.currentIndex = ((parseInt(triadBtn.dataset.currentIndex||0)+1)%list.length);
+    updateTriadBtn(container);
+  };
+  container.querySelector('.playBtn').onclick = ()=>{
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
 
+  // --- DELETE ---
   const deleteBtn = container.querySelector('.deletePackage');
   const deleteHandler = ()=>{
-    const index = allPackages.indexOf(container);
-    allPackages.splice(index,1);
+    const idx = packages.indexOf(container);
+    if(idx>-1) packages.splice(idx,1);
     container.remove();
-    updatePackagesInheritance();
+    updatePackageTitlesAndInheritance();
   };
   deleteBtn.addEventListener('click', deleteHandler);
   deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
@@ -424,11 +424,12 @@ function createPlayPackage(x=50,y=50){
   window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
   window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
 
-  updateTriad();
+  updatePackageTitlesAndInheritance();
 }
 
 // ---------------- INSERT BUTTON ----------------
-document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20*Math.random(),50+20*Math.random());};
+document.getElementById('insertPackageBtn').onclick = ()=>{createPlayPackage(50+20*Math.random(),50+20*Math.random());};
+
 </script>
 </body>
 </html>
