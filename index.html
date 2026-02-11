@@ -295,16 +295,13 @@ for(let refName in extraTriadRefs){
 
 // ---------------- CREATE PLAY PACKAGE ----------------
 let lastTriadBtn = null;
-let lastColorUsed = null;
-let packageCounter = 0; 
-const allPackages = [];
+let lastColorUsed = null; 
+let playPackages = []; // <-- store all packages
 
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
-  packageCounter++;
-  container.dataset.packageIndex = packageCounter-1; // zero-based index
   container.innerHTML=`
-    <div class="packageHeader"><span>Play Package ${packageCounter}</span><button class="deletePackage">X</button></div>
+    <div class="packageHeader"><span>Play Package</span><button class="deletePackage">X</button></div>
     <select class="scaleSelect">${Object.keys(allTriads).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
     <select class="keySelect">${noteOrder.map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
     <select class="colorSelect">${colorOrder.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
@@ -313,28 +310,14 @@ function createPlayPackage(x=50,y=50){
     <button class="playBtn">Play</button>
   `;
   document.body.appendChild(container);
-  allPackages.push(container);
 
   const scaleSelect=container.querySelector('.scaleSelect');
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
 
-  // --- inheritance from previous package ---
-  const prevPackage = allPackages[allPackages.length-2];
-  if(prevPackage){
-    const prevTriadBtn = prevPackage.querySelector('.triadBtn');
-    const prevChordName = prevTriadBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
-    if(prevChordName){
-      const rootMatch = prevChordName.match(/^([A-G]#?)/);
-      if(rootMatch) keySelect.value = rootMatch[1];
-      const nextRef = prevTriadBtn.dataset.nextRef;
-      if(nextRef && allTriads[nextRef]) scaleSelect.value = nextRef;
-    }
-    if(lastColorUsed) colorSelect.value = lastColorUsed;
-  }
-
   let currentIndex=0;
+
   function updateTriad(){
     const scale=scaleSelect.value;
     const key=keySelect.value;
@@ -358,6 +341,7 @@ function createPlayPackage(x=50,y=50){
     const playBtn=container.querySelector('.playBtn');
     playBtn.style.background=colorMap[color];
     playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
+
     if(color==='BLACK'){
       triadBtn.querySelector('.chordName').style.color='white';
       triadBtn.querySelector('.selectableText').style.color='white';
@@ -367,36 +351,42 @@ function createPlayPackage(x=50,y=50){
       triadBtn.querySelector('.selectableText').style.color='#000';
       playBtn.style.color='#000';
     }
+  }
 
-    lastTriadBtn = triadBtn;
-    lastColorUsed = color;
+  // ----------------- DYNAMIC INHERITANCE -----------------
+  function applyInheritance(prevPackage){
+    if(prevPackage){
+      scaleSelect.value = prevPackage.scaleSelect.value;
+      keySelect.value = prevPackage.keySelect.value;
+      colorSelect.value = prevPackage.colorSelect.value;
+    }
+    updateTriad();
+  }
 
-    // propagate changes to subsequent packages
-    const myIndex = allPackages.indexOf(container);
-    for(let i=myIndex+1;i<allPackages.length;i++){
-      const nextPkg = allPackages[i];
-      const prevPkgBtn = allPackages[i-1].querySelector('.triadBtn');
-      const nextScaleSelect = nextPkg.querySelector('.scaleSelect');
-      const nextKeySelect = nextPkg.querySelector('.keySelect');
-      const nextColorSelect = nextPkg.querySelector('.colorSelect');
-
-      const prevChordName = prevPkgBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
-      if(prevChordName){
-        const rootMatch = prevChordName.match(/^([A-G]#?)/);
-        if(rootMatch) nextKeySelect.value = rootMatch[1];
-        const nextRef = prevPkgBtn.dataset.nextRef;
-        if(nextRef && allTriads[nextRef]) nextScaleSelect.value = nextRef;
-      }
-      nextColorSelect.value = prevPkgBtn.style.background ? colorOrder.find(c=>colorMap[c]===prevPkgBtn.style.background) || colorOrder[0] : colorOrder[0];
-      nextPkg.querySelector('.prevBtn').click(); // force update
+  function updateAllNextInheritance(){
+    let idx = playPackages.indexOf(container);
+    for(let i=idx+1;i<playPackages.length;i++){
+      let prev = playPackages[i-1];
+      const sS = prev.querySelector('.scaleSelect').value;
+      const kS = prev.querySelector('.keySelect').value;
+      const cS = prev.querySelector('.colorSelect').value;
+      const sSelect = playPackages[i].querySelector('.scaleSelect');
+      const kSelect = playPackages[i].querySelector('.keySelect');
+      const cSelect = playPackages[i].querySelector('.colorSelect');
+      sSelect.value = sS; kSelect.value=kS; cSelect.value=cS;
+      const triadBtnNext = playPackages[i].querySelector('.triadBtn');
+      triadBtnNext.dataset.currentIndex=0;
+      playPackages[i].querySelector('.triadBtn').dataset.nextRef='';
+      // trigger visual update
+      const ev = new Event('change'); sSelect.dispatchEvent(ev); kSelect.dispatchEvent(ev); cSelect.dispatchEvent(ev);
     }
   }
 
-  scaleSelect.onchange=()=>{currentIndex=0; updateTriad();};
-  keySelect.onchange=()=>{currentIndex=0; updateTriad();};
-  colorSelect.onchange=()=>{currentIndex=0; updateTriad();};
-  container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateTriad();};
-  container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateTriad();};
+  scaleSelect.onchange=()=>{updateTriad(); updateAllNextInheritance();};
+  keySelect.onchange=()=>{updateTriad(); updateAllNextInheritance();};
+  colorSelect.onchange=()=>{updateTriad(); updateAllNextInheritance();};
+  container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateTriad(); updateAllNextInheritance();};
+  container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateTriad(); updateAllNextInheritance();};
   container.querySelector('.playBtn').onclick=()=>{ 
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
@@ -405,14 +395,18 @@ function createPlayPackage(x=50,y=50){
   // --- DELETE BUTTON ---
   const deleteBtn = container.querySelector('.deletePackage');
   const deleteHandler = ()=>{
-    const idx = allPackages.indexOf(container);
-    allPackages.splice(idx,1);
+    let idx = playPackages.indexOf(container);
+    playPackages.splice(idx,1);
     container.remove();
-    // update numbering
-    for(let i=0;i<allPackages.length;i++){
-      const pkg = allPackages[i];
-      pkg.querySelector('.packageHeader span').textContent = `Play Package ${i+1}`;
+    updatePackageNumbers();
+    if(idx>0 && idx<playPackages.length){
+      // apply inheritance from previous
+      const prev = playPackages[idx-1];
+      playPackages[idx].querySelector('.scaleSelect').value = prev.querySelector('.scaleSelect').value;
+      playPackages[idx].querySelector('.keySelect').value = prev.querySelector('.keySelect').value;
+      playPackages[idx].querySelector('.colorSelect').value = prev.querySelector('.colorSelect').value;
     }
+    updateAllNextInheritance();
   };
   deleteBtn.addEventListener('click', deleteHandler);
   deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
@@ -427,7 +421,19 @@ function createPlayPackage(x=50,y=50){
   window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
   window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
 
-  updateTriad();
+  // --- ADD TO GLOBAL LIST ---
+  playPackages.push(container);
+  updatePackageNumbers();
+  // inheritance from previous package
+  if(playPackages.length>1) applyInheritance(playPackages[playPackages.length-2]);
+  else updateTriad();
+
+  // --- UPDATE PACKAGE NUMBERS ---
+  function updatePackageNumbers(){
+    playPackages.forEach((pkg,i)=>{
+      pkg.querySelector('.packageHeader span').textContent = `Play Package ${i+1}`;
+    });
+  }
 }
 
 // ---------------- INSERT BUTTON ----------------
