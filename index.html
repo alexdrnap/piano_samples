@@ -35,6 +35,7 @@ select {
     color: #eee;
 }
 
+/* ---------- COLOR SELECT WIDER ---------- */
 .colorSelect {
     width: 100%;
     padding: 6px 10px;
@@ -253,7 +254,6 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     const [color,degree]=classify(t,baseTriad,scaleNotes);
     const name=nameTriad(t);
     if(!name) return null;
-
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
@@ -265,7 +265,6 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     } else {
         nextRef = chordOnly + '_' + sourceSuffix;
     }
-
     return {triad:t,color,degree,name,source:key+label,nextRef};
   }).filter(Boolean);
   return triads;
@@ -292,55 +291,28 @@ for(let refName in extraTriadRefs){
   }
 }
 
-// ---------------- PLAY PACKAGE MANAGEMENT ----------------
-let packages = [];
+// ---------------- PACKAGE MANAGEMENT ----------------
+let packages=[];
 
-function updatePackageTitlesAndInheritance(){
-  packages.forEach((pkg, idx)=>{
-    pkg.querySelector('.packageHeader span').textContent = `Play Package_${idx+1}`;
-    // Inherit key, scale, color from previous package
-    if(idx>0){
-      const prevPkg=packages[idx-1];
-      pkg.querySelector('.scaleSelect').value = prevPkg.querySelector('.scaleSelect').value;
-      pkg.querySelector('.keySelect').value = prevPkg.querySelector('.keySelect').value;
-      pkg.querySelector('.colorSelect').value = prevPkg.querySelector('.colorSelect').value;
-    }
-    updateTriadBtn(pkg);
+function renumberPackages(){
+  packages.forEach((pkg,i)=>{
+    const header= pkg.container.querySelector('.packageHeader span');
+    header.textContent = `Play Package ${i+1}`;
   });
 }
 
-function updateTriadBtn(pkg){
-  const triadBtn=pkg.querySelector('.triadBtn');
-  const scale= pkg.querySelector('.scaleSelect').value;
-  const key = pkg.querySelector('.keySelect').value;
-  const color = pkg.querySelector('.colorSelect').value;
-  const list=allTriads[scale][key].filter(t=>t.color===color);
-  if(list.length===0){
-    triadBtn.querySelector('.selectableText').textContent='';
-    triadBtn.querySelector('.chordName').textContent='';
-    triadBtn.dataset.nextRef='';
-    return;
-  }
-  const currentIndex = parseInt(triadBtn.dataset.currentIndex||0)%list.length;
-  const t=list[currentIndex];
-  triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
-  triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
-  triadBtn.dataset.nextRef=t.nextRef;
+// Update a package based on its inheritance (from previous package)
+function updatePackageFromParent(pkg){
+  const index = packages.indexOf(pkg);
+  if(index<=0) return; // first package does not inherit
+  const parent = packages[index-1];
 
-  triadBtn.style.background=colorMap[color];
-  triadBtn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
-  const playBtn=pkg.querySelector('.playBtn');
-  playBtn.style.background=colorMap[color];
-  playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
-  if(color==='BLACK'){
-    triadBtn.querySelector('.chordName').style.color='white';
-    triadBtn.querySelector('.selectableText').style.color='white';
-    playBtn.style.color='white';
-  } else {
-    triadBtn.querySelector('.chordName').style.color='#333';
-    triadBtn.querySelector('.selectableText').style.color='#000';
-    playBtn.style.color='#000';
-  }
+  pkg.scaleSelect.value = parent.scaleSelect.value;
+  pkg.keySelect.value = parent.keySelect.value;
+  pkg.colorSelect.value = parent.colorSelect.value;
+
+  pkg.currentIndex=0;
+  pkg.updateTriad();
 }
 
 // ---------------- CREATE PLAY PACKAGE ----------------
@@ -356,65 +328,92 @@ function createPlayPackage(x=50,y=50){
     <button class="playBtn">Play</button>
   `;
   document.body.appendChild(container);
-  packages.push(container);
 
   const scaleSelect=container.querySelector('.scaleSelect');
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
 
-  function chainUpdate(){
-    const idx = packages.indexOf(container);
-    for(let i=idx+1;i<packages.length;i++){
-      packages[i].querySelector('.scaleSelect').value = packages[i-1].querySelector('.scaleSelect').value;
-      packages[i].querySelector('.keySelect').value = packages[i-1].querySelector('.keySelect').value;
-      packages[i].querySelector('.colorSelect').value = packages[i-1].querySelector('.colorSelect').value;
-      updateTriadBtn(packages[i]);
+  let currentIndex=0;
+  function updateTriad(){
+    const scale=scaleSelect.value;
+    const key=keySelect.value;
+    const color=colorSelect.value;
+    const list=allTriads[scale][key].filter(t=>t.color===color);
+    if(list.length===0){
+      triadBtn.querySelector('.selectableText').textContent='';
+      triadBtn.querySelector('.chordName').textContent='';
+      triadBtn.dataset.nextRef='';
+      return;
+    }
+    currentIndex=(currentIndex+list.length)%list.length;
+    const t=list[currentIndex];
+    triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
+    triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
+    triadBtn.dataset.nextRef = t.nextRef;
+    triadBtn.dataset.currentIndex = currentIndex;
+
+    triadBtn.style.background=colorMap[color];
+    triadBtn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
+    const playBtn=container.querySelector('.playBtn');
+    playBtn.style.background=colorMap[color];
+    playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
+    if(color==='BLACK'){
+      triadBtn.querySelector('.chordName').style.color='white';
+      triadBtn.querySelector('.selectableText').style.color='white';
+      playBtn.style.color='white';
+    } else {
+      triadBtn.querySelector('.chordName').style.color='#333';
+      triadBtn.querySelector('.selectableText').style.color='#000';
+      playBtn.style.color='#000';
     }
   }
 
-  scaleSelect.onchange = ()=>{
-    updateTriadBtn(container);
-    chainUpdate();
-  };
-  keySelect.onchange = ()=>{
-    updateTriadBtn(container);
-    chainUpdate();
-  };
-  colorSelect.onchange = ()=>{
-    updateTriadBtn(container);
-    chainUpdate();
-  };
+  // Expose for inheritance
+  const pkg = {container, scaleSelect, keySelect, colorSelect, triadBtn, updateTriad, currentIndex};
+  packages.push(pkg);
+  renumberPackages();
 
-  container.querySelector('.prevBtn').onclick = ()=>{
-    const list=allTriads[scaleSelect.value][keySelect.value].filter(t=>t.color===colorSelect.value);
-    if(list.length===0) return;
-    triadBtn.dataset.currentIndex = ((parseInt(triadBtn.dataset.currentIndex||0)-1+list.length)%list.length);
-    updateTriadBtn(container);
-  };
-  container.querySelector('.nextBtn').onclick = ()=>{
-    const list=allTriads[scaleSelect.value][keySelect.value].filter(t=>t.color===colorSelect.value);
-    if(list.length===0) return;
-    triadBtn.dataset.currentIndex = ((parseInt(triadBtn.dataset.currentIndex||0)+1)%list.length);
-    updateTriadBtn(container);
-  };
-  container.querySelector('.playBtn').onclick = ()=>{
-    const txt=triadBtn.querySelector('.selectableText').textContent;
+  // If not first package, inherit immediately from previous
+  if(packages.length>1) updatePackageFromParent(pkg);
+
+  // Change events propagate to subsequent packages
+  [scaleSelect, keySelect, colorSelect].forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      pkg.currentIndex=0;
+      pkg.updateTriad();
+      // update all subsequent packages
+      const start = packages.indexOf(pkg)+1;
+      for(let i=start;i<packages.length;i++){
+        updatePackageFromParent(packages[i]);
+      }
+    });
+  });
+
+  container.querySelector('.prevBtn').onclick=()=>{ pkg.currentIndex--; pkg.updateTriad(); };
+  container.querySelector('.nextBtn').onclick=()=>{ pkg.currentIndex++; pkg.updateTriad(); };
+  container.querySelector('.playBtn').onclick=()=>{ 
+    const txt=pkg.triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
 
-  // --- DELETE ---
+  // --- DELETE BUTTON ---
   const deleteBtn = container.querySelector('.deletePackage');
-  const deleteHandler = ()=>{
-    const idx = packages.indexOf(container);
-    if(idx>-1) packages.splice(idx,1);
+  const deleteHandler = ()=>{ 
+    const idx = packages.indexOf(pkg);
+    packages.splice(idx,1);
     container.remove();
-    updatePackageTitlesAndInheritance();
+    renumberPackages();
+    // re-inherit all subsequent packages
+    for(let i=idx;i<packages.length;i++){
+      if(i===0) continue;
+      updatePackageFromParent(packages[i]);
+    }
   };
   deleteBtn.addEventListener('click', deleteHandler);
   deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
 
-  // --- TOUCH DRAG ---
+  // --- DRAG ---
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
   function startDrag(e){dragging=true; const ev = e.touches?e.touches[0]:e; offsetX=ev.clientX-container.offsetLeft; offsetY=ev.clientY-container.offsetTop; e.preventDefault();}
@@ -424,12 +423,11 @@ function createPlayPackage(x=50,y=50){
   window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
   window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
 
-  updatePackageTitlesAndInheritance();
+  pkg.updateTriad();
 }
 
 // ---------------- INSERT BUTTON ----------------
-document.getElementById('insertPackageBtn').onclick = ()=>{createPlayPackage(50+20*Math.random(),50+20*Math.random());};
-
+document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20*Math.random(),50+20*Math.random());};
 </script>
 </body>
 </html>
