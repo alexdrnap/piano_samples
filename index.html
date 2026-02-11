@@ -84,6 +84,7 @@ button:hover {
     font-size: 1.2em;
     padding: 4px 8px;
     border-radius: 6px;
+    touch-action: manipulation; /* prevents interfering with dragging */
 }
 /* ---------- TRIAD & PLAY BUTTON ---------- */
 .triadBtn, .playBtn {
@@ -388,18 +389,27 @@ function createPlayPackage(x=50,y=50){
 
   // ---------------- DELETE ----------------
   const deleteBtn = container.querySelector('.deletePackage');
-  deleteBtn.addEventListener('click',()=>{ 
+  function handleDelete(){
     const idx=allPackages.indexOf(container);
     container.remove();
     allPackages = allPackages.filter(p=>p!==container);
     updatePackageNumbers();
     updateChainFrom(idx-1);
-  });
+  }
+  deleteBtn.addEventListener('click',handleDelete);
+  deleteBtn.addEventListener('touchend',function(e){ e.preventDefault(); handleDelete(); });
 
   // ---------------- DRAG ----------------
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
-  function startDrag(e){dragging=true; const ev = e.touches?e.touches[0]:e; offsetX=ev.clientX-container.offsetLeft; offsetY=ev.clientY-container.offsetTop; e.preventDefault();}
+  function startDrag(e){
+    if(e.target.classList.contains('deletePackage')) return; // ignore dragging if touching X
+    dragging=true; 
+    const ev = e.touches?e.touches[0]:e; 
+    offsetX=ev.clientX-container.offsetLeft; 
+    offsetY=ev.clientY-container.offsetTop; 
+    e.preventDefault();
+  }
   function drag(e){ if(!dragging) return; const ev = e.touches?e.touches[0]:e; container.style.left=(ev.clientX-offsetX)+'px'; container.style.top=(ev.clientY-offsetY)+'px'; }
   function stopDrag(){dragging=false;}
   header.addEventListener('mousedown',startDrag); header.addEventListener('touchstart',startDrag);
