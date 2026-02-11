@@ -84,7 +84,7 @@ button:hover {
     font-size: 1.2em;
     padding: 4px 8px;
     border-radius: 6px;
-    touch-action: manipulation; /* prevents interfering with dragging */
+    touch-action: manipulation;
 }
 /* ---------- TRIAD & PLAY BUTTON ---------- */
 .triadBtn, .playBtn {
@@ -254,7 +254,6 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
   }).filter(Boolean);
   return triads;
 }
-
 // Compute scales
 for(let scaleName in scaleIntervals){
   allTriads[scaleName]={};
@@ -278,25 +277,21 @@ for(let refName in extraTriadRefs){
 
 // ---------------- PLAY PACKAGE CREATION ----------------
 let allPackages = [];
-let currentScaleSize = 1; // scale factor 1 = 100%
-const sizeOptions = [0.5, 0.75, 1];
-let currentSizeIndex = 2;
+let nextPackageNumber = 1;
+let currentScaleSize = 1;
 
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); 
   container.className='playPackage'; 
   container.style.left=x+'px'; 
   container.style.top=y+'px';
-  container.style.transform=`scale(${currentScaleSize})`;
-  container.style.transformOrigin='top left';
-
-  // Determine new package number
-  const existingNumbers = allPackages.map(p=>parseInt(p.dataset.pkgNumber)||0);
-  const newNumber = existingNumbers.length ? Math.max(...existingNumbers)+1 : 1;
-  container.dataset.pkgNumber = newNumber;
+  container.style.transform = `scale(${currentScaleSize})`;
+  container.style.transformOrigin = 'top left';
+  const pkgNumber = nextPackageNumber++;
+  container.dataset.pkgNumber = pkgNumber;
 
   container.innerHTML=`
-    <div class="packageHeader"><span>Play Package ${newNumber}</span><button class="deletePackage">X</button></div>
+    <div class="packageHeader"><span>Play Package ${pkgNumber}</span><button class="deletePackage">X</button></div>
     <select class="scaleSelect">${Object.keys(allTriads).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
     <select class="keySelect">${noteOrder.map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
     <select class="colorSelect">${colorOrder.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
@@ -352,6 +347,11 @@ function createPlayPackage(x=50,y=50){
       const prevPkg = allPackages[i-1];
       const pkg = allPackages[i];
 
+      const prevPkgNumber = parseInt(prevPkg.dataset.pkgNumber);
+      const currPkgNumber = parseInt(pkg.dataset.pkgNumber);
+
+      if(currPkgNumber - 1 !== prevPkgNumber) continue; // only inherit from previous number
+
       const prevTriadBtn = prevPkg.querySelector('.triadBtn');
       const prevNextRef = prevTriadBtn.dataset.nextRef || prevPkg.querySelector('.scaleSelect').value;
       const prevKeyMatch = prevTriadBtn.querySelector('.chordName').textContent.match(/^([A-G]#?)/);
@@ -382,6 +382,7 @@ function createPlayPackage(x=50,y=50){
         const playBtn=pkg.querySelector('.playBtn');
         playBtn.style.background=colorMap[colorSelect.value];
         playBtn.className='playBtn'+(colorSelect.value==='BLACK'?' blackBtn':'');
+
         if(colorSelect.value==='BLACK'){triadBtn.querySelector('.chordName').style.color='white'; triadBtn.querySelector('.selectableText').style.color='white'; playBtn.style.color='white';}
         else{triadBtn.querySelector('.chordName').style.color='#333'; triadBtn.querySelector('.selectableText').style.color='#000'; playBtn.style.color='#000';}
       }
@@ -400,6 +401,7 @@ function createPlayPackage(x=50,y=50){
   // ---------------- DELETE ----------------
   const deleteBtn = container.querySelector('.deletePackage');
   function handleDelete(){
+    const idx=allPackages.indexOf(container);
     container.remove();
     allPackages = allPackages.filter(p=>p!==container);
   }
@@ -426,12 +428,13 @@ function createPlayPackage(x=50,y=50){
   // ---------------- INITIAL UPDATE ----------------
   if(allPackages.length>1){
     const prevPkg = allPackages[allPackages.length-2];
-    const prevTriadBtn = prevPkg.querySelector('.triadBtn');
-    const prevNextRef = prevTriadBtn.dataset.nextRef || prevPkg.querySelector('.scaleSelect').value;
-    const prevKeyMatch = prevTriadBtn.querySelector('.chordName').textContent.match(/^([A-G]#?)/);
-    const prevKey = prevKeyMatch ? prevKeyMatch[1] : prevPkg.querySelector('.keySelect').value;
-    const prevColor = prevPkg.querySelector('.colorSelect').value;
-    scaleSelect.value=prevNextRef; keySelect.value=prevKey; colorSelect.value=prevColor;
+    const prevPkgNumber = parseInt(prevPkg.dataset.pkgNumber);
+    if(pkgNumber - 1 === prevPkgNumber){
+      const prevTriadBtn = prevPkg.querySelector('.triadBtn');
+      scaleSelect.value = prevTriadBtn.dataset.nextRef || scaleSelect.value;
+      keySelect.value = prevPkg.querySelector('.keySelect').value;
+      colorSelect.value = prevPkg.querySelector('.colorSelect').value;
+    }
   }
 
   updateTriadForPackage();
@@ -443,6 +446,8 @@ document.getElementById('insertPackageBtn').onclick=()=>{
 };
 
 // ---------------- SIZE TOGGLE ----------------
+const sizeOptions = [0.5, 0.75, 1];
+let currentSizeIndex = 2; // start at 100%
 document.getElementById('size_toggle').onclick = () => {
     currentSizeIndex = (currentSizeIndex + 1) % sizeOptions.length;
     currentScaleSize = sizeOptions[currentSizeIndex];
