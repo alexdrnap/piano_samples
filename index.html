@@ -274,10 +274,8 @@ for(let refName in extraTriadRefs){
   }
 }
 
-// ---------------- CREATE PLAY PACKAGE WITH SEQUENCING & NUMBERING ----------------
-let lastTriadBtn = null;
-let lastColorUsed = null; 
-let allPackages = []; // track all packages for numbering
+// ---------------- PLAY PACKAGE CREATION ----------------
+let allPackages = [];
 
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); 
@@ -302,53 +300,28 @@ function createPlayPackage(x=50,y=50){
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
 
-  // --- Inherit from last package ---
   let currentIndex = 0;
-  if(lastTriadBtn){
-    const prevScale = lastTriadBtn.dataset.nextRef || scaleSelect.value;
-    if(prevScale && allTriads[prevScale]) scaleSelect.value = prevScale;
 
-    const prevColor = lastColorUsed || colorSelect.value;
-    colorSelect.value = prevColor;
+  function updateTriadForPackage(prevScale, prevKey, prevColor){
+    const scale = prevScale || scaleSelect.value;
+    const key = prevKey || keySelect.value;
+    const color = prevColor || colorSelect.value;
+    const list = allTriads[scale][key].filter(t=>t.color===color);
+    if(list.length===0) return;
 
-    const prevKeyMatch = lastTriadBtn.querySelector('.chordName').textContent.match(/^([A-G]#?)/);
-    if(prevKeyMatch) keySelect.value = prevKeyMatch[1];
+    currentIndex = (currentIndex+list.length)%list.length;
+    const t = list[currentIndex];
 
-    // Precompute the next index
-    const prevScaleVal = lastTriadBtn.dataset.nextRef;
-    const prevKeyVal = prevKeyMatch ? prevKeyMatch[1] : keySelect.value;
-    const prevColorVal = prevColor;
-    const triadList = allTriads[prevScaleVal]?.[prevKeyVal]?.filter(t=>t.color===prevColorVal);
-    if(triadList && triadList.length>0){
-      const lastIndex = parseInt(lastTriadBtn.dataset.currentIndex)||0;
-      currentIndex = (lastIndex+1)%triadList.length;
-    }
-  }
-
-  function updateTriad(){
-    const scale=scaleSelect.value;
-    const key=keySelect.value;
-    const color=colorSelect.value;
-    const list=allTriads[scale][key].filter(t=>t.color===color);
-    if(list.length===0){
-      triadBtn.querySelector('.selectableText').textContent='';
-      triadBtn.querySelector('.chordName').textContent='';
-      triadBtn.dataset.nextRef='';
-      return;
-    }
-    currentIndex=(currentIndex+list.length)%list.length;
-    const t=list[currentIndex];
-    triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
-    triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
+    triadBtn.querySelector('.selectableText').textContent = t.triad.join('-');
+    triadBtn.querySelector('.chordName').innerHTML = t.name+'<br>(Source: '+t.source+')';
     triadBtn.dataset.nextRef = t.nextRef;
     triadBtn.dataset.currentIndex = currentIndex;
 
-    triadBtn.style.background=colorMap[color];
-    triadBtn.className='triadBtn'+(color==='BLACK'?' blackBtn':'');
-
-    const playBtn=container.querySelector('.playBtn');
-    playBtn.style.background=colorMap[color];
-    playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
+    triadBtn.style.background = colorMap[color];
+    triadBtn.className = 'triadBtn' + (color==='BLACK'?' blackBtn':'');
+    const playBtn = container.querySelector('.playBtn');
+    playBtn.style.background = colorMap[color];
+    playBtn.className = 'playBtn' + (color==='BLACK'?' blackBtn':'');
 
     if(color==='BLACK'){
       triadBtn.querySelector('.chordName').style.color='white';
@@ -359,32 +332,71 @@ function createPlayPackage(x=50,y=50){
       triadBtn.querySelector('.selectableText').style.color='#000';
       playBtn.style.color='#000';
     }
-
-    lastTriadBtn = triadBtn;
-    lastColorUsed = color;
   }
 
-  scaleSelect.onchange=()=>{currentIndex=0; updateTriad();};
-  keySelect.onchange=()=>{currentIndex=0; updateTriad();};
-  colorSelect.onchange=()=>{currentIndex=0; updateTriad();};
-  container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateTriad();};
-  container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateTriad();};
+  // ---------------- CHAIN UPDATE ----------------
+  function updateChainFrom(index){
+    for(let i=index+1;i<allPackages.length;i++){
+      const prevPkg = allPackages[i-1];
+      const pkg = allPackages[i];
+
+      const prevTriadBtn = prevPkg.querySelector('.triadBtn');
+      const prevNextRef = prevTriadBtn.dataset.nextRef || prevPkg.querySelector('.scaleSelect').value;
+      const prevKeyMatch = prevTriadBtn.querySelector('.chordName').textContent.match(/^([A-G]#?)/);
+      const prevKey = prevKeyMatch ? prevKeyMatch[1] : prevPkg.querySelector('.keySelect').value;
+      const prevColor = prevPkg.querySelector('.colorSelect').value;
+
+      pkg.querySelector('.scaleSelect').value = prevNextRef;
+      pkg.querySelector('.keySelect').value = prevKey;
+      pkg.querySelector('.colorSelect').value = prevColor;
+
+      pkg.dataset.currentIndex = 0;
+      pkg.querySelector('.triadBtn').dataset.currentIndex = 0;
+      pkg.querySelector('.triadBtn').dataset.nextRef = '';
+
+      // call triad update
+      const scaleSelect = pkg.querySelector('.scaleSelect');
+      const keySelect = pkg.querySelector('.keySelect');
+      const colorSelect = pkg.querySelector('.colorSelect');
+      const triadBtn = pkg.querySelector('.triadBtn');
+      const list = allTriads[scaleSelect.value][keySelect.value].filter(t=>t.color===colorSelect.value);
+      if(list.length>0){
+        const t=list[0];
+        triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
+        triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
+        triadBtn.dataset.nextRef=t.nextRef;
+        triadBtn.dataset.currentIndex=0;
+        triadBtn.style.background=colorMap[colorSelect.value];
+        triadBtn.className='triadBtn'+(colorSelect.value==='BLACK'?' blackBtn':'');
+        const playBtn=pkg.querySelector('.playBtn');
+        playBtn.style.background=colorMap[colorSelect.value];
+        playBtn.className='playBtn'+(colorSelect.value==='BLACK'?' blackBtn':'');
+        if(colorSelect.value==='BLACK'){triadBtn.querySelector('.chordName').style.color='white'; triadBtn.querySelector('.selectableText').style.color='white'; playBtn.style.color='white';}
+        else{triadBtn.querySelector('.chordName').style.color='#333'; triadBtn.querySelector('.selectableText').style.color='#000'; playBtn.style.color='#000';}
+      }
+    }
+  }
+
+  // ---------------- EVENTS ----------------
+  scaleSelect.onchange=keySelect.onchange=colorSelect.onchange=()=>{ updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
+  container.querySelector('.prevBtn').onclick=()=>{ currentIndex--; updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
+  container.querySelector('.nextBtn').onclick=()=>{ currentIndex++; updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
   container.querySelector('.playBtn').onclick=()=>{ 
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
 
-  // --- DELETE BUTTON ---
+  // ---------------- DELETE ----------------
   const deleteBtn = container.querySelector('.deletePackage');
-  const deleteHandler = ()=>{ 
-    container.remove(); 
-    allPackages = allPackages.filter(p => p!==container); 
-    updatePackageNumbers(); 
-  };
-  deleteBtn.addEventListener('click', deleteHandler);
-  deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
+  deleteBtn.addEventListener('click',()=>{ 
+    const idx=allPackages.indexOf(container);
+    container.remove();
+    allPackages = allPackages.filter(p=>p!==container);
+    updatePackageNumbers();
+    updateChainFrom(idx-1);
+  });
 
-  // --- TOUCH DRAG ---
+  // ---------------- DRAG ----------------
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
   function startDrag(e){dragging=true; const ev = e.touches?e.touches[0]:e; offsetX=ev.clientX-container.offsetLeft; offsetY=ev.clientY-container.offsetTop; e.preventDefault();}
@@ -394,11 +406,22 @@ function createPlayPackage(x=50,y=50){
   window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
   window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
 
-  updateTriad();
+  // ---------------- INITIAL UPDATE ----------------
+  if(allPackages.length>1){
+    const prevPkg = allPackages[allPackages.length-2];
+    const prevTriadBtn = prevPkg.querySelector('.triadBtn');
+    const prevNextRef = prevTriadBtn.dataset.nextRef || prevPkg.querySelector('.scaleSelect').value;
+    const prevKeyMatch = prevTriadBtn.querySelector('.chordName').textContent.match(/^([A-G]#?)/);
+    const prevKey = prevKeyMatch ? prevKeyMatch[1] : prevPkg.querySelector('.keySelect').value;
+    const prevColor = prevPkg.querySelector('.colorSelect').value;
+    scaleSelect.value=prevNextRef; keySelect.value=prevKey; colorSelect.value=prevColor;
+  }
+
+  updateTriadForPackage();
   updatePackageNumbers();
 }
 
-// Update package numbers dynamically
+// ---------------- PACKAGE NUMBERS ----------------
 function updatePackageNumbers(){
   allPackages.forEach((pkg, idx)=>{
     const header = pkg.querySelector('.packageHeader span');
