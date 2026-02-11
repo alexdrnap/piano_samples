@@ -157,7 +157,7 @@ button:hover {
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
-// ---------------- DATA ----------------
+/* ---------------- DATA & TRIAD FUNCTIONS ---------------- */
 const noteOrder=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const scaleIntervals = { major:[0,2,4,5,7,9,11], naturalMinor:[0,2,3,5,7,8,10], harmonicMinor:[0,2,3,5,7,8,11], melodicMinor:[0,2,3,5,7,9,11] };
 const baseTriadIntervals = { major:[0,4,7], naturalMinor:[0,3,7], harmonicMinor:[0,3,7], melodicMinor:[0,3,7] };
@@ -182,7 +182,6 @@ const pianoSamplerUrls = {
   "G5":"G5.wav","G#4":"GSharp4.wav","G#5":"GSharp5.wav"
 };
 
-// ---------------- TRIAD FUNCTIONS ----------------
 function noteIndex(note){return noteOrder.indexOf(note);}
 function transpose(note,semitones){return noteOrder[(noteIndex(note)+12+semitones)%12];}
 function normalizeEnharmonics(triad){ return triad.map(n=>{ switch(n){ case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default: return n; } }); }
@@ -227,7 +226,7 @@ function generateTriads(base){
   return Array.from(results).map(r=>r.split(',')); 
 }
 
-// ---------------- PLAYBACK ----------------
+/* ---------------- PLAYBACK ---------------- */
 let currentSound='piano', pianoSampler, currentSynth=null;
 async function changeSound(sound){ currentSound=sound;
   if(sound==='piano' && !pianoSampler){ 
@@ -247,14 +246,13 @@ async function playChord(triad){
   else if(currentSound==='AMSynth'){ currentSynth=new Tone.PolySynth(Tone.AMSynth).toDestination(); currentSynth.triggerAttackRelease(notes,'1n'); }
 }
 
-// ---------------- PRECOMPUTE TRIADS ----------------
+/* ---------------- PRECOMPUTE TRIADS ---------------- */
 const allTriads={};
 function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
   const triads=generateTriads(baseTriad).map(t=>{
     const [color,degree]=classify(t,baseTriad,scaleNotes);
     const name=nameTriad(t);
     if(!name) return null;
-
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
@@ -266,13 +264,11 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     } else {
         nextRef = chordOnly + '_' + sourceSuffix;
     }
-
     return {triad:t,color,degree,name,source:key+label,nextRef};
   }).filter(Boolean);
   return triads;
 }
 
-// Compute scales
 for(let scaleName in scaleIntervals){
   allTriads[scaleName]={};
   for(let root of noteOrder){
@@ -281,7 +277,6 @@ for(let scaleName in scaleIntervals){
     allTriads[scaleName][root]=computeRefTriads(baseTriad, scaleName, root, scaleNotes, keyAbbr[scaleName]);
   }
 }
-// Extra triads
 for(let refName in extraTriadRefs){
   const baseTriadOffsets = extraTriadRefs[refName];
   const scaleRel = refName.includes('_maj')?'major':'naturalMinor';
@@ -293,34 +288,35 @@ for(let refName in extraTriadRefs){
   }
 }
 
-// ---------------- DYNAMIC PLAY PACKAGE MANAGEMENT ----------------
-let packages = []; // store all packages
+/* ---------------- PLAY PACKAGE MANAGEMENT ---------------- */
+let packages = [];
 
 function updatePackageNumbersAndInheritance(){
   packages.forEach((pkg,index)=>{
     const headerSpan = pkg.querySelector('.packageHeader span');
     headerSpan.textContent = `Play Package ${index+1}`;
-    // Inheritance from previous package
+
     if(index>0){
       const prevPkg = packages[index-1];
       const prevTriadBtn = prevPkg.querySelector('.triadBtn');
+
       const scaleSelect = pkg.querySelector('.scaleSelect');
       const keySelect = pkg.querySelector('.keySelect');
       const colorSelect = pkg.querySelector('.colorSelect');
-      const nextRef = prevTriadBtn.dataset.nextRef;
-      if(nextRef && allTriads[nextRef]){
-        scaleSelect.value = nextRef;
+
+      if(prevTriadBtn.querySelector('.selectableText').textContent){
+        const nextRef = prevTriadBtn.dataset.nextRef;
+        if(nextRef && allTriads[nextRef]) scaleSelect.value = nextRef;
+
+        const bg = prevTriadBtn.style.background;
+        const colorKey = Object.keys(colorMap).find(c=>colorMap[c]===bg);
+        if(colorKey) colorSelect.value = colorKey;
+
+        scaleSelect.dispatchEvent(new Event('change'));
       }
-      const prevColor = prevTriadBtn.querySelector('.triadBtn, .playBtn').style.background;
-      if(prevColor) colorSelect.value = prevTriadBtn.querySelector('.triadBtn, .playBtn').style.background;
     }
-    // trigger update for the triad itself
-    pkg.querySelector('.scaleSelect').dispatchEvent(new Event('change'));
   });
 }
-
-let lastTriadBtn = null;
-let lastColorUsed = null;
 
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
@@ -334,15 +330,14 @@ function createPlayPackage(x=50,y=50){
     <button class="playBtn">Play</button>
   `;
   document.body.appendChild(container);
-
-  packages.push(container); // add to packages list
+  packages.push(container);
 
   const scaleSelect=container.querySelector('.scaleSelect');
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
-
   let currentIndex=0;
+
   function updateTriad(){
     const scale=scaleSelect.value;
     const key=keySelect.value;
@@ -376,25 +371,24 @@ function createPlayPackage(x=50,y=50){
       playBtn.style.color='#000';
     }
 
-    lastTriadBtn = triadBtn;
-    lastColorUsed = color;
-
-    // live update next packages
+    // Live inheritance for all subsequent packages
     const myIndex = packages.indexOf(container);
     for(let i=myIndex+1;i<packages.length;i++){
       const nextPkg = packages[i];
       const nextScale = nextPkg.querySelector('.scaleSelect');
-      const nextKey = nextPkg.querySelector('.keySelect');
       const nextColor = nextPkg.querySelector('.colorSelect');
       const nextTriadBtn = nextPkg.querySelector('.triadBtn');
-      if(triadBtn.dataset.nextRef && allTriads[triadBtn.dataset.nextRef]){
-        nextScale.value = triadBtn.dataset.nextRef;
+
+      if(triadBtn.querySelector('.selectableText').textContent){
+        nextScale.value = triadBtn.dataset.nextRef || nextScale.value;
+        const colorKey = Object.keys(colorMap).find(c=>colorMap[c]===triadBtn.style.background);
+        if(colorKey) nextColor.value = colorKey;
+        nextTriadBtn.dispatchEvent(new Event('change'));
       }
-      nextColor.value = color;
-      nextTriadBtn.dispatchEvent(new Event('change'));
     }
   }
 
+  // Live update on any change
   scaleSelect.onchange=()=>{currentIndex=0; updateTriad();};
   keySelect.onchange=()=>{currentIndex=0; updateTriad();};
   colorSelect.onchange=()=>{currentIndex=0; updateTriad();};
@@ -405,7 +399,7 @@ function createPlayPackage(x=50,y=50){
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
 
-  // --- DELETE BUTTON ---
+  // Delete package
   const deleteBtn = container.querySelector('.deletePackage');
   const deleteHandler = ()=>{
     const idx = packages.indexOf(container);
@@ -416,7 +410,7 @@ function createPlayPackage(x=50,y=50){
   deleteBtn.addEventListener('click', deleteHandler);
   deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
 
-  // --- TOUCH DRAG ---
+  // Drag
   const header=container.querySelector('.packageHeader');
   let offsetX=0, offsetY=0, dragging=false;
   function startDrag(e){dragging=true; const ev = e.touches?e.touches[0]:e; offsetX=ev.clientX-container.offsetLeft; offsetY=ev.clientY-container.offsetTop; e.preventDefault();}
@@ -429,9 +423,8 @@ function createPlayPackage(x=50,y=50){
   updatePackageNumbersAndInheritance();
 }
 
-// ---------------- INSERT BUTTON ----------------
+/* ---------------- INSERT BUTTON ---------------- */
 document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20*Math.random(),50+20*Math.random());};
-
 </script>
 </body>
 </html>
