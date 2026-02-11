@@ -51,16 +51,16 @@ const pianoSamplerUrls={"A4":"A4.wav","A5":"A5.wav","A#4":"ASharp4.wav","A#5":"A
 // ---------------- TRIAD FUNCTIONS ----------------
 function noteIndex(note){return noteOrder.indexOf(note);}
 function transpose(note,semitones){return noteOrder[(noteIndex(note)+12+semitones)%12];}
-function normalizeEnharmonics(triad){ return triad.map(n=>{ switch(n){ case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default: return n; } }); }
-function classify(triad,refBase,scale){if(triad.slice().sort().join(',')===refBase.slice().sort().join(',')) return ['BASE','1/1']; let same=triad.filter(n=>refBase.includes(n)).length; let inScale=triad.filter(n=>!refBase.includes(n)&&scale.includes(n)).length; let outScale=triad.length-same-inScale; if(same==2&&inScale==1)return['RED','3/4']; if(same==2&&outScale==1)return['ORANGE','3/5']; if(same==1&&inScale==2)return['GOLD','1/2']; if(same==1&&inScale==1&&outScale==1)return['YELLOW','2/5']; if(same==1&&outScale==2)return['BLUE','1/3']; if(same==0&&inScale==3)return['WHITE','1/6']; if(same==0&&inScale==2&&outScale==1)return['LIGHT GREY','1/10']; if(same==0&&inScale==1&&outScale==2)return['DARK GREY','1/20']; if(same==0&&outScale==3)return['BLACK','0']; return['UNKNOWN','-'];}
+function normalizeEnharmonics(triad){return triad.map(n=>{switch(n){case 'Db':return 'C#';case 'Eb':return 'D#';case 'Gb':return 'F#';case 'Ab':return 'G#';case 'Bb':return 'A#';default:return n;}});}
+function classify(triad,refBase,scale){if(triad.slice().sort().join(',')===refBase.slice().sort().join(','))return['BASE','1/1']; let same=triad.filter(n=>refBase.includes(n)).length; let inScale=triad.filter(n=>!refBase.includes(n)&&scale.includes(n)).length; let outScale=triad.length-same-inScale; if(same==2&&inScale==1)return['RED','3/4']; if(same==2&&outScale==1)return['ORANGE','3/5']; if(same==1&&inScale==2)return['GOLD','1/2']; if(same==1&&inScale==1&&outScale==1)return['YELLOW','2/5']; if(same==1&&outScale==2)return['BLUE','1/3']; if(same==0&&inScale==3)return['WHITE','1/6']; if(same==0&&inScale==2&&outScale==1)return['LIGHT GREY','1/10']; if(same==0&&inScale==1&&outScale==2)return['DARK GREY','1/20']; if(same==0&&outScale==3)return['BLACK','0']; return['UNKNOWN','-'];}
 function nameTriad(triad){if(new Set(triad).size<3)return ''; triad=normalizeEnharmonics(triad); const semitone=note=>noteOrder.indexOf(note); const mod12=n=>(n+12)%12; let tri=triad.map(n=>semitone(n)); function intervalsFrom(rot){let ints=rot.map(n=>mod12(n-rot[0])); ints.sort((a,b)=>a-b); return ints;} const triads=[{i:[0,4,7],l:'major'},{i:[0,3,7],l:'minor'},{i:[0,3,6],l:'dim'},{i:[0,4,8],l:'aug'},{i:[0,2,7],l:'sus2'},{i:[0,5,7],l:'sus4'}]; for(let s=0;s<3;s++){let rot=[tri[s],tri[(s+1)%3],tri[(s+2)%3]]; let ints=intervalsFrom(rot); for(let t of triads) if(JSON.stringify(ints)===JSON.stringify(t.i)) return noteOrder[rot[0]]+' '+t.l;} return '';}
 function generateTriads(base){const semis=[-2,-1,0,1,2]; let results=new Set(); for(let i=0;i<3;i++) for(let s of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s); results.add(tri.join(','));} for(let i=0;i<2;i++) for(let j=i+1;j<3;j++) for(let s1 of semis) for(let s2 of semis){ let tri=[...base]; tri[i]=transpose(tri[i],s1); tri[j]=transpose(tri[j],s2); results.add(tri.join(','));} for(let s1 of semis) for(let s2 of semis) for(let s3 of semis){ let tri=[transpose(base[0],s1),transpose(base[1],s2),transpose(base[2],s3)]; results.add(tri.join(','));} return Array.from(results).map(r=>r.split(','));}
 
 // ---------------- PLAYBACK ----------------
 let currentSound='piano', pianoSampler=null, currentSynth=null;
-async function changeSound(sound){currentSound=sound; if(sound==='piano' && !pianoSampler){ pianoSampler = new Tone.Sampler({urls:pianoSamplerUrls, baseUrl:"https://raw.githubusercontent.com/alexdrnap/piano_samples/main/"}).toDestination(); await pianoSampler.loaded;}}
-function getTriadSamples(triad){const normalized=triad.map(n=>{switch(n){case 'Db': return 'C#'; case 'Eb': return 'D#'; case 'Gb': return 'F#'; case 'Ab': return 'G#'; case 'Bb': return 'A#'; default:return n;}}); let notes=normalized.map((note,i)=>{ const options=sampleChoiceMap[note]; if(!options) return null; return (i===0?options[0]:options[1]||options[0]); }); return notes.filter(Boolean);}
-async function playChord(triad){await Tone.start(); if(currentSynth){currentSynth.dispose(); currentSynth=null;} const notes=getTriadSamples(triad); if(currentSound==='piano' && pianoSampler) notes.forEach(n=>pianoSampler.triggerAttackRelease(n,'1n')); else if(currentSound==='AMSynth'){ currentSynth=new Tone.PolySynth(Tone.AMSynth).toDestination(); currentSynth.triggerAttackRelease(notes,'1n');}
+async function changeSound(sound){currentSound=sound; if(sound==='piano' && !pianoSampler){ pianoSampler=new Tone.Sampler({urls:pianoSamplerUrls, baseUrl:"https://raw.githubusercontent.com/alexdrnap/piano_samples/main/"}).toDestination(); await pianoSampler.loaded;}}
+function getTriadSamples(triad){const normalized=triad.map(n=>{switch(n){case 'Db':return 'C#';case 'Eb':return 'D#';case 'Gb':return 'F#';case 'Ab':return 'G#';case 'Bb':return 'A#';default:return n;}}); return normalized.map((note,i)=>{const options=sampleChoiceMap[note]; if(!options) return null; return i===0?options[0]:(options[1]||options[0]);}).filter(Boolean);}
+async function playChord(triad){await Tone.start(); if(currentSynth){currentSynth.dispose(); currentSynth=null;} const notes=getTriadSamples(triad); if(currentSound==='piano' && pianoSampler) notes.forEach(n=>pianoSampler.triggerAttackRelease(n,'1n')); else if(currentSound==='AMSynth'){currentSynth=new Tone.PolySynth(Tone.AMSynth).toDestination(); currentSynth.triggerAttackRelease(notes,'1n');}}
 
 // ---------------- PRECOMPUTE TRIADS ----------------
 const allTriads={};
@@ -73,19 +73,18 @@ let table=[], packages=[];
 
 function insertPackage(x=50,y=50){
     let last = table.length ? table[table.length-1] : {scale:'major', key:'C', color:'BASE', triadIndex:0, nextRef:'major'};
-    let entry = {scale:last.nextRef||last.scale, key:last.key, color:last.color, triadIndex:0, nextRef:last.nextRef||last.scale};
+    let nextScale = allTriads[last.nextRef] ? last.nextRef : 'major';
+    let entry = {scale:nextScale, key:last.key, color:last.color, triadIndex:0, nextRef:nextScale};
     table.push(entry);
 
     const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
-    container.innerHTML=`
-        <div class="packageHeader"><span></span><button class="deletePackage">X</button></div>
+    container.innerHTML=`<div class="packageHeader"><span></span><button class="deletePackage">X</button></div>
         <select class="scaleSelect">${Object.keys(allTriads).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
         <select class="keySelect">${noteOrder.map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
         <select class="colorSelect">${colorOrder.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
         <button class="triadBtn"><span class="selectableText"></span><span class="chordName"></span></button>
         <div class="navButtons"><button class="prevBtn">◀</button><button class="nextBtn">▶</button></div>
-        <button class="playBtn">Play</button>
-    `;
+        <button class="playBtn">Play</button>`;
     document.body.appendChild(container); packages.push(container);
 
     const scaleSelect=container.querySelector('.scaleSelect'); 
@@ -102,11 +101,13 @@ function insertPackage(x=50,y=50){
         scaleSelect.value=entry.scale; keySelect.value=entry.key; colorSelect.value=entry.color;
 
         const list = allTriads[entry.scale][entry.key].filter(t=>t.color===entry.color);
-        if(list.length>0){ const idx=Math.min(entry.triadIndex,list.length-1); const t=list[idx];
+        if(list.length>0){ 
+            const idx=Math.min(entry.triadIndex,list.length-1); 
+            const t=list[idx];
             triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
             triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source:'+t.source+')';
             entry.nextRef=t.nextRef;
-        } else {triadBtn.querySelector('.selectableText').textContent=''; triadBtn.querySelector('.chordName').textContent=''; entry.nextRef=entry.scale;}
+        } else {triadBtn.querySelector('.selectableText').textContent=''; triadBtn.querySelector('.chordName').textContent=''; entry.nextRef='major';}
 
         triadBtn.style.background=colorMap[entry.color]; playBtn.style.background=colorMap[entry.color];
         if(entry.color==='BLACK'){triadBtn.className='triadBtn blackBtn'; playBtn.className='playBtn blackBtn'; triadBtn.querySelector('.chordName').style.color='white'; triadBtn.querySelector('.selectableText').style.color='white'; playBtn.style.color='white';}
@@ -121,10 +122,7 @@ function insertPackage(x=50,y=50){
     triadBtn.onclick=()=>{let idx=table[packages.indexOf(container)].triadIndex; table[packages.indexOf(container)].triadIndex=(idx+1)%allTriads[table[packages.indexOf(container)].scale][table[packages.indexOf(container)].key].filter(t=>t.color===table[packages.indexOf(container)].color).length; updateSubsequent(packages.indexOf(container));};
     playBtn.onclick=()=>{ const entry = table[packages.indexOf(container)]; const list = allTriads[entry.scale][entry.key].filter(t=>t.color===entry.color); if(list.length>0){ playChord(list[entry.triadIndex].triad); }};
 
-    deleteBtn.onclick=()=>{
-        const idx=packages.indexOf(container);
-        table.splice(idx,1); container.remove(); packages.splice(idx,1); updateSubsequent(idx);
-    };
+    deleteBtn.onclick=()=>{ const idx=packages.indexOf(container); table.splice(idx,1); container.remove(); packages.splice(idx,1); updateSubsequent(idx);};
 
     // Drag
     let offsetX,offsetY,dragging=false;
