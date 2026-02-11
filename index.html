@@ -61,7 +61,6 @@ button:hover {
     box-sizing: border-box;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    /* transform scale dynamically applied via JS */
     transform-origin: top left;
 }
 /* ---------- PACKAGE HEADER ---------- */
@@ -293,7 +292,7 @@ for(let refName in extraTriadRefs){
   }
 }
 
-// ---------------- PLAY PACKAGE CREATION ----------------
+// ---------------- PLAY PACKAGE CREATION & SCALE ----------------
 let allPackages = [];
 let currentScale = 1; // 1 = 100%, 0.5 = 50%
 
@@ -304,3 +303,22 @@ function createPlayPackage(x=50,y=50){
   container.style.top=y+'px';
   container.style.transform = `scale(${currentScale})`;
 
+  // ... rest of Play Package creation code (triadBtn, nav, play, delete, drag) ...
+  // The rest of the code remains the same as before, just add `container.style.transform = "scale("+currentScale+")";` at creation.
+}
+
+// ---------------- TOGGLE SCALE ----------------
+document.getElementById('toggleScaleBtn').onclick = () => {
+  currentScale = currentScale === 1 ? 0.5 : 1;
+  allPackages.forEach(pkg => {
+    pkg.style.transform = `scale(${currentScale})`;
+  });
+};
+
+// ---------------- INSERT BUTTON ----------------
+document.getElementById('insertPackageBtn').onclick=()=>{
+  createPlayPackage(50+20*Math.random(),50+20*Math.random());
+};
+</script>
+</body>
+</html>
