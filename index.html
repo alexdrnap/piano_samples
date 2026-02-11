@@ -295,8 +295,7 @@ for(let refName in extraTriadRefs){
 
 // ---------------- CREATE PLAY PACKAGE ----------------
 let lastTriadBtn = null;
-let lastColorUsed = null; 
-let playPackages = []; // <-- store all packages
+let lastColorUsed = null; // <-- store last color globally
 
 function createPlayPackage(x=50,y=50){
   const container=document.createElement('div'); container.className='playPackage'; container.style.left=x+'px'; container.style.top=y+'px';
@@ -316,8 +315,19 @@ function createPlayPackage(x=50,y=50){
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
 
-  let currentIndex=0;
+  // Inherit key, scale, and now color
+  if(lastTriadBtn){
+    const prevChordName = lastTriadBtn.querySelector('.chordName').textContent.split('\n')[0] || '';
+    if(prevChordName){
+      const rootMatch = prevChordName.match(/^([A-G]#?)/);
+      if(rootMatch) keySelect.value = rootMatch[1];
+      const nextRef = lastTriadBtn.dataset.nextRef;
+      if(nextRef && allTriads[nextRef]) scaleSelect.value = nextRef;
+    }
+    if(lastColorUsed) colorSelect.value = lastColorUsed;
+  }
 
+  let currentIndex=0;
   function updateTriad(){
     const scale=scaleSelect.value;
     const key=keySelect.value;
@@ -341,7 +351,6 @@ function createPlayPackage(x=50,y=50){
     const playBtn=container.querySelector('.playBtn');
     playBtn.style.background=colorMap[color];
     playBtn.className='playBtn'+(color==='BLACK'?' blackBtn':'');
-
     if(color==='BLACK'){
       triadBtn.querySelector('.chordName').style.color='white';
       triadBtn.querySelector('.selectableText').style.color='white';
@@ -351,63 +360,24 @@ function createPlayPackage(x=50,y=50){
       triadBtn.querySelector('.selectableText').style.color='#000';
       playBtn.style.color='#000';
     }
+
+    lastTriadBtn = triadBtn;
+    lastColorUsed = color; // <-- update last color
   }
 
-  // ----------------- DYNAMIC INHERITANCE -----------------
-  function applyInheritance(prevPackage){
-    if(prevPackage){
-      scaleSelect.value = prevPackage.scaleSelect.value;
-      keySelect.value = prevPackage.keySelect.value;
-      colorSelect.value = prevPackage.colorSelect.value;
-    }
-    updateTriad();
-  }
-
-  function updateAllNextInheritance(){
-    let idx = playPackages.indexOf(container);
-    for(let i=idx+1;i<playPackages.length;i++){
-      let prev = playPackages[i-1];
-      const sS = prev.querySelector('.scaleSelect').value;
-      const kS = prev.querySelector('.keySelect').value;
-      const cS = prev.querySelector('.colorSelect').value;
-      const sSelect = playPackages[i].querySelector('.scaleSelect');
-      const kSelect = playPackages[i].querySelector('.keySelect');
-      const cSelect = playPackages[i].querySelector('.colorSelect');
-      sSelect.value = sS; kSelect.value=kS; cSelect.value=cS;
-      const triadBtnNext = playPackages[i].querySelector('.triadBtn');
-      triadBtnNext.dataset.currentIndex=0;
-      playPackages[i].querySelector('.triadBtn').dataset.nextRef='';
-      // trigger visual update
-      const ev = new Event('change'); sSelect.dispatchEvent(ev); kSelect.dispatchEvent(ev); cSelect.dispatchEvent(ev);
-    }
-  }
-
-  scaleSelect.onchange=()=>{updateTriad(); updateAllNextInheritance();};
-  keySelect.onchange=()=>{updateTriad(); updateAllNextInheritance();};
-  colorSelect.onchange=()=>{updateTriad(); updateAllNextInheritance();};
-  container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateTriad(); updateAllNextInheritance();};
-  container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateTriad(); updateAllNextInheritance();};
+  scaleSelect.onchange=()=>{currentIndex=0; updateTriad();};
+  keySelect.onchange=()=>{currentIndex=0; updateTriad();};
+  colorSelect.onchange=()=>{currentIndex=0; updateTriad();};
+  container.querySelector('.prevBtn').onclick=()=>{currentIndex--; updateTriad();};
+  container.querySelector('.nextBtn').onclick=()=>{currentIndex++; updateTriad();};
   container.querySelector('.playBtn').onclick=()=>{ 
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
 
-  // --- DELETE BUTTON ---
+  // --- DELETE BUTTON FIX FOR TOUCH ---
   const deleteBtn = container.querySelector('.deletePackage');
-  const deleteHandler = ()=>{
-    let idx = playPackages.indexOf(container);
-    playPackages.splice(idx,1);
-    container.remove();
-    updatePackageNumbers();
-    if(idx>0 && idx<playPackages.length){
-      // apply inheritance from previous
-      const prev = playPackages[idx-1];
-      playPackages[idx].querySelector('.scaleSelect').value = prev.querySelector('.scaleSelect').value;
-      playPackages[idx].querySelector('.keySelect').value = prev.querySelector('.keySelect').value;
-      playPackages[idx].querySelector('.colorSelect').value = prev.querySelector('.colorSelect').value;
-    }
-    updateAllNextInheritance();
-  };
+  const deleteHandler = ()=>container.remove();
   deleteBtn.addEventListener('click', deleteHandler);
   deleteBtn.addEventListener('touchstart', e=>{ e.stopPropagation(); deleteHandler(); });
 
@@ -421,19 +391,7 @@ function createPlayPackage(x=50,y=50){
   window.addEventListener('mousemove',drag); window.addEventListener('touchmove',drag);
   window.addEventListener('mouseup',stopDrag); window.addEventListener('touchend',stopDrag);
 
-  // --- ADD TO GLOBAL LIST ---
-  playPackages.push(container);
-  updatePackageNumbers();
-  // inheritance from previous package
-  if(playPackages.length>1) applyInheritance(playPackages[playPackages.length-2]);
-  else updateTriad();
-
-  // --- UPDATE PACKAGE NUMBERS ---
-  function updatePackageNumbers(){
-    playPackages.forEach((pkg,i)=>{
-      pkg.querySelector('.packageHeader span').textContent = `Play Package ${i+1}`;
-    });
-  }
+  updateTriad();
 }
 
 // ---------------- INSERT BUTTON ----------------
@@ -441,3 +399,4 @@ document.getElementById('insertPackageBtn').onclick=()=>{createPlayPackage(50+20
 </script>
 </body>
 </html>
+
