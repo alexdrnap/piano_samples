@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chord Familiarity Generator - Grid Packages</title>
+<title>Chord Familiarity Generator - Play Packages</title>
 <style>
 /* ---------- GENERAL STYLES ---------- */
 body {
@@ -17,29 +17,30 @@ h2 {
     text-align: center;
     color: #fff;
 }
-/* ---------- GRID CONTAINER ---------- */
-#gridContainer {
+
+/* ---------- GRID ---------- */
+.packageGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
     padding: 10px;
     justify-items: center;
     align-items: start;
 }
+
 /* ---------- PLAY PACKAGE ---------- */
 .playPackage {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 260 / 260;
-    background: #2c2c2c;
     border: 1px solid #555;
     padding: 12px;
+    background: #2c2c2c;
+    width: 100%;
+    max-width: 260px;
+    box-sizing: border-box;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    box-sizing: border-box;
-    transform: scale(1);
     transform-origin: top left;
 }
+
 /* ---------- PACKAGE HEADER ---------- */
 .packageHeader {
     display: flex;
@@ -54,6 +55,7 @@ h2 {
     font-weight: bold;
     color: #fff;
 }
+
 /* ---------- CLOSE BUTTON ---------- */
 .deletePackage {
     background: #e74c3c;
@@ -61,37 +63,40 @@ h2 {
     font-size: 1.2em;
     padding: 4px 8px;
     border-radius: 6px;
-    cursor: pointer;
     touch-action: manipulation;
-}
-/* ---------- SELECTS & BUTTONS ---------- */
-button, select {
     cursor: pointer;
-    font-size: 0.95em;
-    border: none;
-    border-radius: 6px;
-    outline: none;
 }
+
+/* ---------- SELECTS & BUTTONS ---------- */
 select {
     padding: 6px 10px;
-    margin: 0 5px 10px 0;
-    background-color: #333;
-    color: #eee;
-}
-.colorSelect {
-    width: 100%;
-    padding: 6px 10px;
-    margin: 0 0 10px 0;
+    margin: 5px 0;
     background-color: #333;
     color: #eee;
     border-radius: 6px;
-    box-sizing: border-box;
-}
-.triadBtn, .playBtn {
     width: 100%;
-    height: 70px;
+    box-sizing: border-box;
     font-size: 0.95em;
-    padding: 5px;
+}
+button {
+    padding: 10px;
+    background-color: #444;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 100%;
+    font-size: 0.95em;
+    margin-top: 6px;
+    transition: background 0.2s;
+}
+button:hover {
+    background-color: #555;
+}
+
+/* ---------- TRIAD & PLAY BUTTON ---------- */
+.triadBtn, .playBtn {
+    height: 70px;
     text-align: center;
     border-radius: 8px;
     transition: transform 0.1s;
@@ -100,6 +105,7 @@ select {
     justify-content: center;
     align-items: center;
     word-break: break-word;
+    margin-top: 6px;
 }
 .triadBtn:active, .playBtn:active {
     transform: scale(0.97);
@@ -107,6 +113,7 @@ select {
 .triadBtn.blackBtn, .playBtn.blackBtn {
     color: #fff;
 }
+
 /* ---------- NAV BUTTONS ---------- */
 .navButtons {
     display: flex;
@@ -116,12 +123,6 @@ select {
 .navButtons button {
     flex: 1;
     margin: 0 3px;
-    background-color: #444;
-    color: #fff;
-    border-radius: 6px;
-}
-.navButtons button:hover {
-    background-color: #555;
 }
 .selectableText, .chordName {
     display: block;
@@ -130,7 +131,7 @@ select {
 </style>
 </head>
 <body>
-<h2>Chord Familiarity Generator - Grid Packages</h2>
+<h2>Chord Familiarity Generator - Play Packages</h2>
 
 <label for="soundSelectGlobal">Select Sound:</label>
 <select id="soundSelectGlobal" onchange="changeSound(this.value)">
@@ -140,7 +141,7 @@ select {
 <button id="insertPackageBtn">INSERT PLAY PACKAGE</button>
 <button id="size_toggle">Toggle Size</button>
 
-<div id="gridContainer"></div>
+<div id="packageGrid" class="packageGrid"></div>
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
@@ -244,7 +245,7 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
-    let sourceSuffix = (key+label).endsWith('maj') ? 'maj' : 'min';
+    const sourceSuffix = (key+label).endsWith('maj') ? 'maj' : 'min';
     if(['major','minor','dim','aug','sus2','sus4'].includes(chordOnly)){
         if(chordOnly==='major') nextRef='major';
         else if(chordOnly==='minor') nextRef='naturalMinor';
@@ -256,6 +257,7 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
   }).filter(Boolean);
   return triads;
 }
+
 // Compute scales
 for(let scaleName in scaleIntervals){
   allTriads[scaleName]={};
@@ -278,15 +280,16 @@ for(let refName in extraTriadRefs){
 }
 
 // ---------------- PLAY PACKAGE CREATION ----------------
+let allPackages = [];
 let nextPackageNumber = 1;
 let currentScaleSize = 1;
+
+const containerGrid = document.getElementById('packageGrid');
 
 function createPlayPackage(){
   const container=document.createElement('div'); 
   container.className='playPackage'; 
-
-  const grid = document.getElementById('gridContainer');
-  grid.appendChild(container);
+  container.style.transform = `scale(${currentScaleSize})`;
 
   const pkgNumber = nextPackageNumber++;
   container.dataset.pkgNumber = pkgNumber;
@@ -301,11 +304,13 @@ function createPlayPackage(){
     <button class="playBtn">Play</button>
   `;
 
+  containerGrid.appendChild(container);
+  allPackages.push(container);
+
   const scaleSelect=container.querySelector('.scaleSelect');
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
-
   let currentIndex = 0;
 
   function updateTriadForPackage(prevScale, prevKey, prevColor){
@@ -331,13 +336,13 @@ function createPlayPackage(){
     playBtn.className = 'playBtn' + (color==='BLACK'?' blackBtn':'');
 
     if(color==='BLACK'){
-        triadBtn.querySelector('.chordName').style.color='white';
-        triadBtn.querySelector('.selectableText').style.color='white';
-        playBtn.style.color='white';
+      triadBtn.querySelector('.chordName').style.color='white';
+      triadBtn.querySelector('.selectableText').style.color='white';
+      playBtn.style.color='white';
     } else {
-        triadBtn.querySelector('.chordName').style.color='#333';
-        triadBtn.querySelector('.selectableText').style.color='#000';
-        playBtn.style.color='#000';
+      triadBtn.querySelector('.chordName').style.color='#333';
+      triadBtn.querySelector('.selectableText').style.color='#000';
+      playBtn.style.color='#000';
     }
   }
 
@@ -348,7 +353,12 @@ function createPlayPackage(){
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
-  container.querySelector('.deletePackage').onclick = ()=>{ container.remove(); };
+
+  const deleteBtn = container.querySelector('.deletePackage');
+  deleteBtn.addEventListener('click',()=>{ 
+    container.remove();
+    allPackages = allPackages.filter(p=>p!==container);
+  });
 
   updateTriadForPackage();
 }
@@ -363,11 +373,11 @@ const sizeOptions = [0.5, 0.75, 1];
 let currentSizeIndex = 2; // start at 100%
 document.getElementById('size_toggle').onclick = () => {
     currentSizeIndex = (currentSizeIndex + 1) % sizeOptions.length;
-    const scale = sizeOptions[currentSizeIndex];
-    document.querySelectorAll('.playPackage').forEach(pkg => {
-        pkg.style.transform = `scale(${scale})`;
-        pkg.style.transformOrigin = 'top left';
+    currentScaleSize = sizeOptions[currentSizeIndex];
+    allPackages.forEach(pkg => {
+        pkg.style.transform = `scale(${currentScaleSize})`;
     });
+    document.getElementById('packageGrid').style.gap = `${12 * currentScaleSize}px`;
 };
 </script>
 </body>
