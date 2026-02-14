@@ -17,7 +17,6 @@ h2 {
     text-align: center;
     color: #fff;
 }
-
 /* ---------- SELECTS & BUTTONS ---------- */
 button, select {
     cursor: pointer;
@@ -32,6 +31,7 @@ select {
     background-color: #333;
     color: #eee;
 }
+/* ---------- COLOR SELECT WIDER ---------- */
 .colorSelect {
     width: 100%;
     padding: 6px 10px;
@@ -50,27 +50,20 @@ button {
 button:hover {
     background-color: #555;
 }
-
 /* ---------- PLAY PACKAGE CONTAINER ---------- */
-#packagesContainer {
-    display: flex;
-    flex-wrap: wrap;
-}
 .playPackage {
-    position: relative;
-    width: 260px;
+    display: inline-block;
+    vertical-align: top;
     border: 1px solid #555;
     padding: 12px;
     background: #2c2c2c;
-    margin: 10px;
+    width: 260px;
+    margin: 8px;
+    box-sizing: border-box;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    box-sizing: border-box;
-    display: inline-block;
-    vertical-align: top;
     transform-origin: top left;
 }
-
 /* ---------- PACKAGE HEADER ---------- */
 .packageHeader {
     display: flex;
@@ -85,7 +78,6 @@ button:hover {
     font-weight: bold;
     color: #fff;
 }
-
 /* ---------- CLOSE BUTTON ---------- */
 .deletePackage {
     background: #e74c3c;
@@ -95,7 +87,6 @@ button:hover {
     border-radius: 6px;
     touch-action: manipulation;
 }
-
 /* ---------- TRIAD & PLAY BUTTON ---------- */
 .triadBtn, .playBtn {
     width: 100%;
@@ -117,7 +108,6 @@ button:hover {
 .triadBtn.blackBtn, .playBtn.blackBtn {
     color: #fff;
 }
-
 /* ---------- NAV BUTTONS ---------- */
 .navButtons {
     display: flex;
@@ -150,9 +140,6 @@ button:hover {
 </select>
 <button id="insertPackageBtn">INSERT PLAY PACKAGE</button>
 <button id="size_toggle">Toggle Size</button>
-
-<!-- Container for packages -->
-<div id="packagesContainer"></div>
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
@@ -256,7 +243,7 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
-    let sourceSuffix = (key+label).endsWith('maj') ? 'maj' : 'min';
+    const sourceSuffix = (key+label).endsWith('maj') ? 'maj' : 'min';
     if(['major','minor','dim','aug','sus2','sus4'].includes(chordOnly)){
         if(chordOnly==='major') nextRef='major';
         else if(chordOnly==='minor') nextRef='naturalMinor';
@@ -297,7 +284,7 @@ let currentScaleSize = 1;
 function createPlayPackage(){
   const container=document.createElement('div'); 
   container.className='playPackage'; 
-
+  container.style.transform = `scale(${currentScaleSize})`;
   const pkgNumber = nextPackageNumber++;
   container.dataset.pkgNumber = pkgNumber;
 
@@ -310,14 +297,14 @@ function createPlayPackage(){
     <div class="navButtons"><button class="prevBtn">◀</button><button class="nextBtn">▶</button></div>
     <button class="playBtn">Play</button>
   `;
-
-  document.getElementById('packagesContainer').appendChild(container);
+  document.body.appendChild(container);
   allPackages.push(container);
 
   const scaleSelect=container.querySelector('.scaleSelect');
   const keySelect=container.querySelector('.keySelect');
   const colorSelect=container.querySelector('.colorSelect');
   const triadBtn=container.querySelector('.triadBtn');
+
   let currentIndex = 0;
 
   function updateTriadForPackage(prevScale, prevKey, prevColor){
@@ -353,28 +340,73 @@ function createPlayPackage(){
     }
   }
 
-  // Event listeners
-  scaleSelect.onchange = keySelect.onchange = colorSelect.onchange = () => { 
-    updateTriadForPackage(); 
-    updateChainFrom(allPackages.indexOf(container)); 
-  };
-  container.querySelector('.prevBtn').onclick = () => { currentIndex--; updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
-  container.querySelector('.nextBtn').onclick = () => { currentIndex++; updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
-  container.querySelector('.playBtn').onclick = () => { 
+  function updateChainFrom(index){
+    for(let i=index+1;i<allPackages.length;i++){
+      const prevPkg = allPackages[i-1];
+      const pkg = allPackages[i];
+
+      const prevPkgNumber = parseInt(prevPkg.dataset.pkgNumber);
+      const currPkgNumber = parseInt(pkg.dataset.pkgNumber);
+
+      if(currPkgNumber - 1 !== prevPkgNumber) continue;
+
+      const prevTriadBtn = prevPkg.querySelector('.triadBtn');
+      const prevNextRef = prevTriadBtn.dataset.nextRef || prevPkg.querySelector('.scaleSelect').value;
+      const prevKeyMatch = prevTriadBtn.querySelector('.chordName').textContent.match(/^([A-G]#?)/);
+      const prevKey = prevKeyMatch ? prevKeyMatch[1] : prevPkg.querySelector('.keySelect').value;
+      const prevColor = prevPkg.querySelector('.colorSelect').value;
+
+      pkg.querySelector('.scaleSelect').value = prevNextRef;
+      pkg.querySelector('.keySelect').value = prevKey;
+      pkg.querySelector('.colorSelect').value = prevColor;
+
+      pkg.dataset.currentIndex = 0;
+      pkg.querySelector('.triadBtn').dataset.currentIndex = 0;
+      pkg.querySelector('.triadBtn').dataset.nextRef = '';
+
+      const scaleSelect = pkg.querySelector('.scaleSelect');
+      const keySelect = pkg.querySelector('.keySelect');
+      const colorSelect = pkg.querySelector('.colorSelect');
+      const triadBtn = pkg.querySelector('.triadBtn');
+      const list = allTriads[scaleSelect.value][keySelect.value].filter(t=>t.color===colorSelect.value);
+      if(list.length>0){
+        const t=list[0];
+        triadBtn.querySelector('.selectableText').textContent=t.triad.join('-');
+        triadBtn.querySelector('.chordName').innerHTML=t.name+'<br>(Source: '+t.source+')';
+        triadBtn.dataset.nextRef=t.nextRef;
+        triadBtn.dataset.currentIndex=0;
+        triadBtn.style.background=colorMap[colorSelect.value];
+        triadBtn.className='triadBtn'+(colorSelect.value==='BLACK'?' blackBtn':'');
+        const playBtn=pkg.querySelector('.playBtn');
+        playBtn.style.background=colorMap[colorSelect.value];
+        playBtn.className='playBtn'+(colorSelect.value==='BLACK'?' blackBtn':'');
+
+        if(colorSelect.value==='BLACK'){triadBtn.querySelector('.chordName').style.color='white'; triadBtn.querySelector('.selectableText').style.color='white'; playBtn.style.color='white';}
+        else{triadBtn.querySelector('.chordName').style.color='#333'; triadBtn.querySelector('.selectableText').style.color='#000'; playBtn.style.color='#000';}
+      }
+    }
+  }
+
+  // ---------------- EVENTS ----------------
+  scaleSelect.onchange=keySelect.onchange=colorSelect.onchange=()=>{ updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
+  container.querySelector('.prevBtn').onclick=()=>{ currentIndex--; updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
+  container.querySelector('.nextBtn').onclick=()=>{ currentIndex++; updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
+  container.querySelector('.playBtn').onclick=()=>{ 
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
 
-  // Delete
+  // ---------------- DELETE ----------------
   const deleteBtn = container.querySelector('.deletePackage');
   function handleDelete(){
+    const idx=allPackages.indexOf(container);
     container.remove();
     allPackages = allPackages.filter(p=>p!==container);
   }
   deleteBtn.addEventListener('click',handleDelete);
   deleteBtn.addEventListener('touchend',function(e){ e.preventDefault(); handleDelete(); });
 
-  // Initial triad update
+  // ---------------- INITIAL UPDATE ----------------
   if(allPackages.length>1){
     const prevPkg = allPackages[allPackages.length-2];
     const prevPkgNumber = parseInt(prevPkg.dataset.pkgNumber);
@@ -385,6 +417,7 @@ function createPlayPackage(){
       colorSelect.value = prevPkg.querySelector('.colorSelect').value;
     }
   }
+
   updateTriadForPackage();
 }
 
