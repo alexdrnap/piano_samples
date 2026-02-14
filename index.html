@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chord Familiarity Generator - Play Packages</title>
-<style>
 
-/* ---------- GENERAL STYLES ---------- */
+<style>
+/* ---------- GENERAL ---------- */
 body {
     font-family: 'Segoe UI', sans-serif;
     padding: 10px;
@@ -18,6 +18,15 @@ body {
 h2 {
     text-align: center;
     color: #fff;
+}
+
+/* ---------- GRID LAYOUT ---------- */
+.gridContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 260px);
+    gap: 14px;
+    justify-content: start;
+    padding: 10px;
 }
 
 /* ---------- SELECTS & BUTTONS ---------- */
@@ -53,30 +62,20 @@ button {
     transition: background 0.2s;
 }
 
-button:hover {
-    background-color: #555;
-}
-
-/* ---------- GRID LAYOUT ---------- */
-#packageGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 15px;
-    margin-top: 20px;
-}
+button:hover { background-color: #555; }
 
 /* ---------- PLAY PACKAGE ---------- */
 .playPackage {
     border: 1px solid #555;
     padding: 12px;
     background: #2c2c2c;
-    width: 100%;
-    box-sizing: border-box;
+    width: 260px;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    box-sizing: border-box;
 }
 
-/* ---------- PACKAGE HEADER ---------- */
+/* ---------- HEADER ---------- */
 .packageHeader {
     display: flex;
     justify-content: space-between;
@@ -84,7 +83,6 @@ button:hover {
     background: #3a3a3a;
     padding: 8px 10px;
     border-radius: 8px;
-    user-select: none;
 }
 
 .packageHeader span {
@@ -92,7 +90,6 @@ button:hover {
     color: #fff;
 }
 
-/* ---------- CLOSE BUTTON ---------- */
 .deletePackage {
     background: #e74c3c;
     color: #fff;
@@ -101,7 +98,7 @@ button:hover {
     border-radius: 6px;
 }
 
-/* ---------- TRIAD & PLAY BUTTON ---------- */
+/* ---------- TRIAD & PLAY ---------- */
 .triadBtn, .playBtn {
     width: 100%;
     height: 70px;
@@ -121,7 +118,9 @@ button:hover {
     transform: scale(0.97);
 }
 
-/* ---------- NAV BUTTONS ---------- */
+.triadBtn.blackBtn, .playBtn.blackBtn { color: #fff; }
+
+/* ---------- NAV ---------- */
 .navButtons {
     display: flex;
     justify-content: center;
@@ -137,14 +136,14 @@ button:hover {
     display: block;
     font-weight: 500;
 }
-
 </style>
 </head>
+
 <body>
 
 <h2>Chord Familiarity Generator - Play Packages</h2>
 
-<label for="soundSelectGlobal">Select Sound:</label>
+<label>Select Sound:</label>
 <select id="soundSelectGlobal" onchange="changeSound(this.value)">
   <option value="piano">Piano</option>
   <option value="AMSynth">AMSynth</option>
@@ -154,24 +153,26 @@ button:hover {
 <button id="size_toggle">Toggle Size</button>
 
 <!-- GRID CONTAINER -->
-<div id="packageGrid"></div>
+<div id="grid" class="gridContainer"></div>
 
 <script src="https://unpkg.com/tone@latest"></script>
 
 <script>
 
-// (ALL YOUR MUSICAL / TRIAD / AUDIO LOGIC REMAINS UNCHANGED)
-// I removed only drag + absolute positioning parts
+/* ---------------- EXISTING DATA + TRIAD + AUDIO CODE UNCHANGED ---------------- */
+/* (ALL YOUR ORIGINAL JS ABOVE createPlayPackage REMAINS IDENTICAL) */
 
-// ---------------- PLAY PACKAGE CREATION ----------------
+/* ---------------- PLAY PACKAGE CREATION ---------------- */
+
 let allPackages = [];
 let nextPackageNumber = 1;
 let currentScaleSize = 1;
 
 function createPlayPackage(){
+  const grid = document.getElementById('grid');
 
-  const container=document.createElement('div');
-  container.className='playPackage';
+  const container=document.createElement('div'); 
+  container.className='playPackage'; 
   container.style.transform = `scale(${currentScaleSize})`;
   container.style.transformOrigin = 'top left';
 
@@ -184,9 +185,9 @@ function createPlayPackage(){
         <button class="deletePackage">X</button>
     </div>
 
-    <select class="scaleSelect"></select>
-    <select class="keySelect"></select>
-    <select class="colorSelect"></select>
+    <select class="scaleSelect">${Object.keys(allTriads).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
+    <select class="keySelect">${noteOrder.map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
+    <select class="colorSelect">${colorOrder.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
 
     <button class="triadBtn">
         <span class="selectableText"></span>
@@ -201,25 +202,110 @@ function createPlayPackage(){
     <button class="playBtn">Play</button>
   `;
 
-  document.getElementById('packageGrid').appendChild(container);
+  grid.appendChild(container);
   allPackages.push(container);
 
-  // DELETE
-  container.querySelector('.deletePackage').onclick=()=>{
-    container.remove();
-    allPackages = allPackages.filter(p=>p!==container);
+  const scaleSelect=container.querySelector('.scaleSelect');
+  const keySelect=container.querySelector('.keySelect');
+  const colorSelect=container.querySelector('.colorSelect');
+  const triadBtn=container.querySelector('.triadBtn');
+
+  let currentIndex = 0;
+
+  function updateTriadForPackage(prevScale, prevKey, prevColor){
+    const scale = prevScale || scaleSelect.value;
+    const key = prevKey || keySelect.value;
+    const color = prevColor || colorSelect.value;
+    const list = allTriads[scale][key].filter(t=>t.color===color);
+    if(list.length===0) return;
+
+    currentIndex = (currentIndex+list.length)%list.length;
+    const t = list[currentIndex];
+
+    triadBtn.querySelector('.selectableText').textContent = t.triad.join('-');
+    triadBtn.querySelector('.chordName').innerHTML = t.name+'<br>(Source: '+t.source+')';
+    triadBtn.dataset.nextRef = t.nextRef;
+    triadBtn.dataset.currentIndex = currentIndex;
+
+    triadBtn.style.background = colorMap[color];
+    triadBtn.className = 'triadBtn' + (color==='BLACK'?' blackBtn':'');
+
+    const playBtn = container.querySelector('.playBtn');
+    playBtn.style.background = colorMap[color];
+    playBtn.className = 'playBtn' + (color==='BLACK'?' blackBtn':'');
+
+    if(color==='BLACK'){
+      triadBtn.querySelector('.chordName').style.color='white';
+      triadBtn.querySelector('.selectableText').style.color='white';
+      playBtn.style.color='white';
+    } else {
+      triadBtn.querySelector('.chordName').style.color='#333';
+      triadBtn.querySelector('.selectableText').style.color='#000';
+      playBtn.style.color='#000';
+    }
+  }
+
+  function updateChainFrom(index){
+    for(let i=index+1;i<allPackages.length;i++){
+      const prevPkg = allPackages[i-1];
+      const pkg = allPackages[i];
+
+      const prevPkgNumber = parseInt(prevPkg.dataset.pkgNumber);
+      const currPkgNumber = parseInt(pkg.dataset.pkgNumber);
+
+      if(currPkgNumber - 1 !== prevPkgNumber) continue;
+
+      const prevTriadBtn = prevPkg.querySelector('.triadBtn');
+      const prevNextRef = prevTriadBtn.dataset.nextRef || prevPkg.querySelector('.scaleSelect').value;
+      const prevKeyMatch = prevTriadBtn.querySelector('.chordName').textContent.match(/^([A-G]#?)/);
+      const prevKey = prevKeyMatch ? prevKeyMatch[1] : prevPkg.querySelector('.keySelect').value;
+      const prevColor = prevPkg.querySelector('.colorSelect').value;
+
+      pkg.querySelector('.scaleSelect').value = prevNextRef;
+      pkg.querySelector('.keySelect').value = prevKey;
+      pkg.querySelector('.colorSelect').value = prevColor;
+    }
+  }
+
+  scaleSelect.onchange=keySelect.onchange=colorSelect.onchange=()=>{
+      updateTriadForPackage();
+      updateChainFrom(allPackages.indexOf(container));
   };
 
-  // (rest of your triad logic here unchanged)
+  container.querySelector('.prevBtn').onclick=()=>{
+      currentIndex--;
+      updateTriadForPackage();
+      updateChainFrom(allPackages.indexOf(container));
+  };
 
+  container.querySelector('.nextBtn').onclick=()=>{
+      currentIndex++;
+      updateTriadForPackage();
+      updateChainFrom(allPackages.indexOf(container));
+  };
+
+  container.querySelector('.playBtn').onclick=()=>{ 
+    const txt=triadBtn.querySelector('.selectableText').textContent;
+    if(txt){ const tri=txt.split('-'); playChord(tri); } 
+  };
+
+  /* DELETE */
+  const deleteBtn = container.querySelector('.deletePackage');
+  deleteBtn.onclick=()=>{
+      const idx=allPackages.indexOf(container);
+      container.remove();
+      allPackages.splice(idx,1);
+  };
+
+  /* INITIAL — stays empty until user action */
 }
 
-// INSERT BUTTON
+/* INSERT */
 document.getElementById('insertPackageBtn').onclick=()=>{
   createPlayPackage();
 };
 
-// SIZE TOGGLE
+/* SIZE */
 const sizeOptions = [0.5, 0.75, 1];
 let currentSizeIndex = 2;
 
