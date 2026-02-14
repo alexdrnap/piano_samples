@@ -18,26 +18,56 @@ h2 {
     color: #fff;
 }
 
-/* ---------- GRID ---------- */
-.packageGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 12px;
+/* ---------- SELECTS & BUTTONS ---------- */
+button, select {
+    cursor: pointer;
+    font-size: 0.95em;
+    border: none;
+    border-radius: 6px;
+    outline: none;
+}
+select {
+    padding: 6px 10px;
+    margin: 0 5px 10px 0;
+    background-color: #333;
+    color: #eee;
+}
+.colorSelect {
+    width: 100%;
+    padding: 6px 10px;
+    margin: 0 0 10px 0;
+    background-color: #333;
+    color: #eee;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+button {
     padding: 10px;
-    justify-items: center;
-    align-items: start;
+    background-color: #444;
+    color: #fff;
+    transition: background 0.2s;
+}
+button:hover {
+    background-color: #555;
 }
 
-/* ---------- PLAY PACKAGE ---------- */
+/* ---------- PLAY PACKAGE CONTAINER ---------- */
+#packagesContainer {
+    display: flex;
+    flex-wrap: wrap;
+}
 .playPackage {
+    position: relative;
+    width: 260px;
     border: 1px solid #555;
     padding: 12px;
     background: #2c2c2c;
-    width: 100%;
-    max-width: 260px;
-    box-sizing: border-box;
+    margin: 10px;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    box-sizing: border-box;
+    display: inline-block;
+    vertical-align: top;
     transform-origin: top left;
 }
 
@@ -64,39 +94,14 @@ h2 {
     padding: 4px 8px;
     border-radius: 6px;
     touch-action: manipulation;
-    cursor: pointer;
-}
-
-/* ---------- SELECTS & BUTTONS ---------- */
-select {
-    padding: 6px 10px;
-    margin: 5px 0;
-    background-color: #333;
-    color: #eee;
-    border-radius: 6px;
-    width: 100%;
-    box-sizing: border-box;
-    font-size: 0.95em;
-}
-button {
-    padding: 10px;
-    background-color: #444;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    width: 100%;
-    font-size: 0.95em;
-    margin-top: 6px;
-    transition: background 0.2s;
-}
-button:hover {
-    background-color: #555;
 }
 
 /* ---------- TRIAD & PLAY BUTTON ---------- */
 .triadBtn, .playBtn {
+    width: 100%;
     height: 70px;
+    font-size: 0.95em;
+    padding: 5px;
     text-align: center;
     border-radius: 8px;
     transition: transform 0.1s;
@@ -105,7 +110,6 @@ button:hover {
     justify-content: center;
     align-items: center;
     word-break: break-word;
-    margin-top: 6px;
 }
 .triadBtn:active, .playBtn:active {
     transform: scale(0.97);
@@ -123,6 +127,12 @@ button:hover {
 .navButtons button {
     flex: 1;
     margin: 0 3px;
+    background-color: #444;
+    color: #fff;
+    border-radius: 6px;
+}
+.navButtons button:hover {
+    background-color: #555;
 }
 .selectableText, .chordName {
     display: block;
@@ -141,7 +151,8 @@ button:hover {
 <button id="insertPackageBtn">INSERT PLAY PACKAGE</button>
 <button id="size_toggle">Toggle Size</button>
 
-<div id="packageGrid" class="packageGrid"></div>
+<!-- Container for packages -->
+<div id="packagesContainer"></div>
 
 <script src="https://unpkg.com/tone@latest"></script>
 <script>
@@ -245,7 +256,7 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
     let nextRef='';
     const rootMatch = name.match(/^([A-G]#?)/);
     let chordOnly = name.replace(/^([A-G]#?)/,'').trim();
-    const sourceSuffix = (key+label).endsWith('maj') ? 'maj' : 'min';
+    let sourceSuffix = (key+label).endsWith('maj') ? 'maj' : 'min';
     if(['major','minor','dim','aug','sus2','sus4'].includes(chordOnly)){
         if(chordOnly==='major') nextRef='major';
         else if(chordOnly==='minor') nextRef='naturalMinor';
@@ -257,7 +268,6 @@ function computeRefTriads(baseTriad, scaleName, key, scaleNotes, label){
   }).filter(Boolean);
   return triads;
 }
-
 // Compute scales
 for(let scaleName in scaleIntervals){
   allTriads[scaleName]={};
@@ -284,12 +294,9 @@ let allPackages = [];
 let nextPackageNumber = 1;
 let currentScaleSize = 1;
 
-const containerGrid = document.getElementById('packageGrid');
-
 function createPlayPackage(){
   const container=document.createElement('div'); 
   container.className='playPackage'; 
-  container.style.transform = `scale(${currentScaleSize})`;
 
   const pkgNumber = nextPackageNumber++;
   container.dataset.pkgNumber = pkgNumber;
@@ -304,7 +311,7 @@ function createPlayPackage(){
     <button class="playBtn">Play</button>
   `;
 
-  containerGrid.appendChild(container);
+  document.getElementById('packagesContainer').appendChild(container);
   allPackages.push(container);
 
   const scaleSelect=container.querySelector('.scaleSelect');
@@ -346,20 +353,38 @@ function createPlayPackage(){
     }
   }
 
-  scaleSelect.onchange=keySelect.onchange=colorSelect.onchange=()=>{ updateTriadForPackage(); };
-  container.querySelector('.prevBtn').onclick=()=>{ currentIndex--; updateTriadForPackage(); };
-  container.querySelector('.nextBtn').onclick=()=>{ currentIndex++; updateTriadForPackage(); };
-  container.querySelector('.playBtn').onclick=()=>{ 
+  // Event listeners
+  scaleSelect.onchange = keySelect.onchange = colorSelect.onchange = () => { 
+    updateTriadForPackage(); 
+    updateChainFrom(allPackages.indexOf(container)); 
+  };
+  container.querySelector('.prevBtn').onclick = () => { currentIndex--; updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
+  container.querySelector('.nextBtn').onclick = () => { currentIndex++; updateTriadForPackage(); updateChainFrom(allPackages.indexOf(container)); };
+  container.querySelector('.playBtn').onclick = () => { 
     const txt=triadBtn.querySelector('.selectableText').textContent;
     if(txt){ const tri=txt.split('-'); playChord(tri); } 
   };
 
+  // Delete
   const deleteBtn = container.querySelector('.deletePackage');
-  deleteBtn.addEventListener('click',()=>{ 
+  function handleDelete(){
     container.remove();
     allPackages = allPackages.filter(p=>p!==container);
-  });
+  }
+  deleteBtn.addEventListener('click',handleDelete);
+  deleteBtn.addEventListener('touchend',function(e){ e.preventDefault(); handleDelete(); });
 
+  // Initial triad update
+  if(allPackages.length>1){
+    const prevPkg = allPackages[allPackages.length-2];
+    const prevPkgNumber = parseInt(prevPkg.dataset.pkgNumber);
+    if(pkgNumber - 1 === prevPkgNumber){
+      const prevTriadBtn = prevPkg.querySelector('.triadBtn');
+      scaleSelect.value = prevTriadBtn.dataset.nextRef || scaleSelect.value;
+      keySelect.value = prevPkg.querySelector('.keySelect').value;
+      colorSelect.value = prevPkg.querySelector('.colorSelect').value;
+    }
+  }
   updateTriadForPackage();
 }
 
@@ -377,7 +402,6 @@ document.getElementById('size_toggle').onclick = () => {
     allPackages.forEach(pkg => {
         pkg.style.transform = `scale(${currentScaleSize})`;
     });
-    document.getElementById('packageGrid').style.gap = `${12 * currentScaleSize}px`;
 };
 </script>
 </body>
